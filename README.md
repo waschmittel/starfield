@@ -2,6 +2,9 @@
 
 Classic Windows-style starfield screensaver.
 
+![Starfield screensaver](assets/starfield.png)
+
+
 - `starfield.html` – standalone interactive browser version. `F`/double-click fullscreen (keeps the
   screen awake), `↑ ↓`/wheel speed, `← →` trail length, `+ −` star density, `Space` pause.
 - `macos/` – native `Starfield.saver` (Swift). See [macos/README.md](macos/README.md).
