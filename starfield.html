@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starfield</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  body.idle { cursor: none; }
+  #hint {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    font: 13px/1.4 system-ui, sans-serif; color: #9ab; background: rgba(0,0,0,.55);
+    padding: 8px 14px; border-radius: 6px; pointer-events: none;
+    transition: opacity .6s; white-space: nowrap;
+  }
+  #hint { text-align: center; }
+  #hint b { color: #cde; font-weight: 600; }
+  #hint.hide { opacity: 0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint"><b>F</b> / double-click fullscreen &nbsp;·&nbsp; <b>↑ ↓</b> / wheel speed &nbsp;·&nbsp; <b>← →</b> trail length &nbsp;·&nbsp; <b>+ −</b> density &nbsp;·&nbsp; <b>Space</b> pause<br><span id="status"></span></div>
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const hint = document.getElementById('hint');
+
+  const MAX_STARS = 5000;
+  let starCount = 1200;
+  const DEPTH = 1000;
+  const NEAR = 1;
+  const SPREAD = 2000;
+  let speed = 6;
+  let paused = false;
+  let trailLength = 0.4;
+  const MAX_TRAIL = 4;
+
+  // Struct-of-arrays: no per-frame allocation.
+  const X = new Float32Array(MAX_STARS);
+  const Y = new Float32Array(MAX_STARS);
+  const Z = new Float32Array(MAX_STARS);
+
+  function respawn(i, anywhere) {
+    X[i] = (Math.random() - 0.5) * SPREAD;
+    Y[i] = (Math.random() - 0.5) * SPREAD;
+    Z[i] = anywhere ? Math.random() * DEPTH + NEAR : DEPTH;
+  }
+  for (let i = 0; i < MAX_STARS; i++) respawn(i, true);
+
+  let w = 0, h = 0, cx = 0, cy = 0, focal = 0;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = window.innerWidth; h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+    cx = w / 2; cy = h / 2;
+    focal = Math.max(w, h) * 0.5;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const BUCKETS = 8;
+  const colors = [];
+  for (let b = 0; b < BUCKETS; b++) {
+    const v = Math.round(70 + (185 * b) / (BUCKETS - 1));
+    colors.push(`rgb(${v},${v},${v})`);
+  }
+  const bucketIdx = Array.from({ length: BUCKETS }, () => new Int32Array(MAX_STARS));
+  const bucketLen = new Int32Array(BUCKETS);
+  const sx = new Float32Array(MAX_STARS), sy = new Float32Array(MAX_STARS);
+  const px = new Float32Array(MAX_STARS), py = new Float32Array(MAX_STARS);
+  const sz = new Float32Array(MAX_STARS);
+
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    let dt = (now - last) / 16.667;
+    last = now;
+    if (dt > 4) dt = 4;
+    if (paused) return;
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
+    const step = speed * dt;
+    bucketLen.fill(0);
+
+    for (let i = 0; i < starCount; i++) {
+      Z[i] -= step;
+      if (Z[i] < NEAR) { respawn(i, false); continue; }
+
+      const z = Z[i], k = focal / z;
+      const x = cx + X[i] * k, y = cy + Y[i] * k;
+      if (x < -50 || x > w + 50 || y < -50 || y > h + 50) { respawn(i, false); continue; }
+
+      const kp = focal / (z + speed * trailLength);
+      sx[i] = x; sy[i] = y;
+      px[i] = cx + X[i] * kp; py[i] = cy + Y[i] * kp;
+
+      const t = 1 - z / DEPTH;
+      sz[i] = 0.6 + t * t * 2.6;
+      let b = (t * BUCKETS) | 0;
+      if (b >= BUCKETS) b = BUCKETS - 1;
+      bucketIdx[b][bucketLen[b]++] = i;
+    }
+
+    ctx.lineCap = 'round';
+    for (let b = 0; b < BUCKETS; b++) {
+      const n = bucketLen[b];
+      if (!n) continue;
+      const idx = bucketIdx[b];
+      const col = colors[b];
+      const lw = 0.6 + (b / (BUCKETS - 1)) * 2.4;
+
+      if (trailLength > 0) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        for (let j = 0; j < n; j++) {
+          const i = idx[j];
+          ctx.moveTo(px[i], py[i]);
+          ctx.lineTo(sx[i], sy[i]);
+        }
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = col;
+        for (let j = 0; j < n; j++) {
+          const i = idx[j], s = sz[i];
+          ctx.fillRect(sx[i] - s / 2, sy[i] - s / 2, s, s);
+        }
+      }
+    }
+  }
+  requestAnimationFrame(frame);
+
+  function toggleFullscreen() {
+    const d = document;
+    if (d.fullscreenElement || d.webkitFullscreenElement) {
+      (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    } else {
+      const el = d.documentElement;
+      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    }
+  }
+  canvas.addEventListener('dblclick', toggleFullscreen);
+
+  window.addEventListener('keydown', e => {
+    switch (e.key) {
+      case 'f': case 'F': case 'Enter': toggleFullscreen(); break;
+      case 'ArrowRight': trailLength = Math.min(MAX_TRAIL, Math.round(trailLength * 10 + 1) / 10); showStatus(); break;
+      case 'ArrowLeft': trailLength = Math.max(0, Math.round(trailLength * 10 - 1) / 10); showStatus(); break;
+      case '+': case '=': starCount = Math.min(MAX_STARS, Math.round(starCount * 1.25)); showStatus(); break;
+      case '-': case '_': starCount = Math.max(50, Math.round(starCount / 1.25)); showStatus(); break;
+      case ' ': paused = !paused; last = performance.now(); e.preventDefault(); break;
+      case 'ArrowUp': speed = Math.min(60, speed * 1.25); showStatus(); break;
+      case 'ArrowDown': speed = Math.max(0.5, speed / 1.25); showStatus(); break;
+    }
+  });
+  window.addEventListener('wheel', e => {
+    speed = e.deltaY < 0 ? Math.min(60, speed * 1.1) : Math.max(0.5, speed / 1.1);
+    showStatus();
+  }, { passive: true });
+
+  const status = document.getElementById('status');
+  function showStatus() {
+    status.textContent = `speed ${speed.toFixed(1)} · trail ${trailLength.toFixed(1)} · stars ${starCount}`;
+    wake();
+  }
+
+  let idleTimer;
+  function wake() {
+    document.body.classList.remove('idle');
+    hint.classList.remove('hide');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      document.body.classList.add('idle');
+      hint.classList.add('hide');
+    }, 2500);
+  }
+  window.addEventListener('mousemove', wake);
+  showStatus();
+
+  let wakeLock = null;
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  async function updateWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      if (isFullscreen() && !wakeLock && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!isFullscreen() && wakeLock) {
+        await wakeLock.release();
+      }
+    } catch (_) { /* denied, e.g. low battery: screensaver still works, just may lock */ }
+  }
+  document.addEventListener('fullscreenchange', updateWakeLock);
+  document.addEventListener('webkitfullscreenchange', updateWakeLock);
+  document.addEventListener('visibilitychange', updateWakeLock);
+})();
+</script>
+</body>
+</html>
