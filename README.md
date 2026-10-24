@@ -1,13 +1,19 @@
 # Starfield
 
-Classic Windows-style starfield screensaver.
+Classic Windows-style starfield screensaver. For **Mac**, **Windows** and plain **HTML**
 
 ![Starfield screensaver](assets/starfield.png)
 
+## HTML
 
 - `starfield.html` – standalone interactive browser version. `F`/double-click fullscreen (keeps the
   screen awake), `↑ ↓`/wheel speed, `← →` trail length, `+ −` star density, `Space` pause.
+
+## macOS
 - `macos/` – native `Starfield.saver` (Swift). See [macos/README.md](macos/README.md).
+
+## Windows
+
 - `windows-webview/` – `Starfield.scr`, C#/WinForms + WebView2: renders the same HTML page as the browser. See [windows-webview/README.md](windows-webview/README.md).
 - `windows-gdi/` – `Starfield.scr`, plain C/Win32/GDI: tiny, CPU-rendered, works back to Windows 7. See [windows-gdi/README.md](windows-gdi/README.md).
 - `windows-direct2d/` – `Starfield.scr`, C++/Direct2D: GPU-accelerated, anti-aliased, per-monitor vsync. See [windows-direct2d/README.md](windows-direct2d/README.md).
