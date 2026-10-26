@@ -94,11 +94,15 @@ jobs:
         with:
           path: artifacts
 
-      - name: Add HTML version
+      - name: Package HTML version (self-hostable)
         run: |
           v="${GITHUB_REF#refs/tags/}"; v="${v#v}"
-          mkdir -p artifacts/html
-          cp starfield.html "artifacts/html/Starfield-$v.html"
+          mkdir -p site/starfield artifacts/html
+          cp starfield.html site/starfield/
+          cp starfield.html site/starfield/index.html
+          cp manifest.webmanifest sw.js site/starfield/
+          cp -r icons site/starfield/icons
+          (cd site && zip -qr "../artifacts/html/Starfield-html-$v.zip" starfield)
 
       - name: Write release notes
         run: |
@@ -108,7 +112,7 @@ jobs:
           | `Starfield-macos-*.saver.zip` | **macOS** 13+ (Apple Silicon and Intel). Unzip, then open `Starfield.saver`. |
           | `Starfield-windows-direct2d-*.scr` | **Windows 10 / 11** (recommended): GPU-accelerated, anti-aliased, per-monitor vsync. |
           | `Starfield-windows-gdi-legacy-*.scr` | **Old Windows versions (Windows 7 / 8 / 8.1)**: use this one if the Direct2D version does not run. CPU-rendered, tiny. |
-          | `Starfield-*.html` | Plain **HTML** version, opens in any browser. Also hosted on GitHub Pages: https://waschmittel.github.io/starfield/ |
+          | `Starfield-html-*.zip` | Plain **HTML** version for self-hosting: unzip and serve the `starfield/` folder over HTTPS (installable as a PWA). Also hosted on GitHub Pages: https://waschmittel.github.io/starfield/ |
 
           To install a `.scr` on Windows, right-click it and choose **Install**.
           EOF
