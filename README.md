@@ -34,3 +34,36 @@ All versions share the same algorithm and settings (speed, trail length, star de
   high-resolution and high-refresh-rate monitors.
 
 The two Windows versions share their settings (`HKCU\Software\Starfield`).
+
+## Unsigned files (macOS and Windows)
+
+The prebuilt screensavers are not signed with a paid Apple Developer ID or a Windows code-signing
+certificate, so the operating systems warn about them. The build is open source and produced by
+the [release workflow](.github/workflows/release.yml); you can also build it yourself.
+
+### macOS
+
+The saver is only ad-hoc signed and not notarized, so Gatekeeper blocks a downloaded copy
+("Apple could not verify ... is free of malware").
+
+1. Unzip and double-click `Starfield.saver`. If macOS refuses, open **System Settings > Privacy & Security**,
+   scroll down and click **Open Anyway** next to the Starfield message, then confirm.
+2. Or remove the download quarantine flag in Terminal before installing:
+   ```bash
+   xattr -dr com.apple.quarantine Starfield.saver
+   ```
+   (use the path where you put it, e.g. `~/Library/Screen Savers/Starfield.saver` if already installed).
+3. Pick **Starfield** in **System Settings > Screen Saver**. If an older version is installed, run
+   `killall legacyScreenSaver WallpaperAgent` so the new one is loaded.
+
+### Windows
+
+The `.scr` files are not code-signed, so SmartScreen may show **Windows protected your PC**, and the
+downloaded file is marked as coming from the internet.
+
+1. Right-click the `.scr` file > **Properties**, tick **Unblock** at the bottom of the General tab, **OK**.
+2. Right-click the file > **Install**. If SmartScreen appears, click **More info > Run anyway**.
+3. Browsers and antivirus tools may also flag an unsigned `.scr` as uncommon; you may have to choose
+   **Keep** in the download list.
+
+Alternatively, unblock it from PowerShell: `Unblock-File .\Starfield-windows-direct2d-*.scr`
