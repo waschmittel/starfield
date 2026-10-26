@@ -129,18 +129,47 @@ static void saver_step(Saver *s, float dt) {
     }
 }
 
-static float now_seconds(void) {
+/* double: the counter runs from boot, a float would lose millisecond precision after hours of uptime
+ * and make dt jitter visibly. */
+static double now_seconds(void) {
     static LARGE_INTEGER freq;
     LARGE_INTEGER t;
     if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&t);
-    return (float)((double)t.QuadPart / (double)freq.QuadPart);
+    return (double)t.QuadPart / (double)freq.QuadPart;
 }
 
-static HRESULT create_d3d_device(ID3D11Device **dev) {
+/* Finds the adapter that has the given monitor attached, so a multi-GPU system renders each screen
+ * on the GPU that scans it out (no cross-adapter copies). Returns NULL if not found. */
+static IDXGIAdapter1 *find_adapter_for_monitor(HMONITOR mon) {
+    IDXGIFactory1 *f = NULL;
+    IDXGIAdapter1 *found = NULL;
+    if (!mon || FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void **)&f))) return NULL;
+    IDXGIAdapter1 *a = NULL;
+    for (UINT i = 0; !found && f->EnumAdapters1(i, &a) != DXGI_ERROR_NOT_FOUND; i++) {
+        IDXGIOutput *o = NULL;
+        for (UINT j = 0; !found && a->EnumOutputs(j, &o) != DXGI_ERROR_NOT_FOUND; j++) {
+            DXGI_OUTPUT_DESC od;
+            if (SUCCEEDED(o->GetDesc(&od)) && od.Monitor == mon) { found = a; found->AddRef(); }
+            o->Release();
+        }
+        a->Release();
+    }
+    f->Release();
+    return found;
+}
+
+static HRESULT create_d3d_device(HMONITOR mon, ID3D11Device **dev) {
     D3D_FEATURE_LEVEL fl;
     UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-    HRESULT hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, NULL, 0, D3D11_SDK_VERSION, dev, &fl, NULL);
+    HRESULT hr = E_FAIL;
+    IDXGIAdapter1 *adapter = find_adapter_for_monitor(mon);
+    if (adapter) {
+        hr = D3D11CreateDevice(adapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, flags, NULL, 0, D3D11_SDK_VERSION, dev, &fl, NULL);
+        adapter->Release();
+    }
+    if (FAILED(hr))
+        hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, NULL, 0, D3D11_SDK_VERSION, dev, &fl, NULL);
     if (FAILED(hr))   /* no GPU / driver problem: software rasterizer still works, just slower */
         hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_WARP, NULL, flags, NULL, 0, D3D11_SDK_VERSION, dev, &fl, NULL);
     return hr;
@@ -164,7 +193,7 @@ static DWORD WINAPI render_thread(LPVOID param) {
     ID2D1SolidColorBrush *brushes[BUCKETS] = { 0 };
     HANDLE waitable = NULL;
 
-    bool ok = SUCCEEDED(create_d3d_device(&d3d))
+    bool ok = SUCCEEDED(create_d3d_device(MonitorFromWindow(s->hwnd, MONITOR_DEFAULTTONEAREST), &d3d))
         && SUCCEEDED(d3d->QueryInterface(__uuidof(IDXGIDevice), (void **)&dxgiDev))
         && SUCCEEDED(dxgiDev->GetAdapter(&adapter))
         && SUCCEEDED(adapter->GetParent(__uuidof(IDXGIFactory2), (void **)&factory));
@@ -199,13 +228,13 @@ static DWORD WINAPI render_thread(LPVOID param) {
         }
     }
 
-    float last = now_seconds();
+    double last = now_seconds();
     while (ok && g_running) {
         if (waitable) WaitForSingleObjectEx(waitable, 100, TRUE);
         if (!g_running) break;
 
-        float t = now_seconds();
-        float dt = (t - last) * 60.0f;        /* time-based: same speed at any refresh rate */
+        double t = now_seconds();
+        float dt = (float)((t - last) * 60.0);   /* time-based: same speed at any refresh rate */
         last = t;
         if (dt > 4.0f) dt = 4.0f;
         saver_step(s, dt);
