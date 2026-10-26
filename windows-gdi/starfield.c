@@ -1,5 +1,5 @@
 /*
- * Starfield screensaver, plain Win32 + GDI. No .NET, no WebView2, no CRT DLL:
+ * Starfield screensaver, plain Win32 + GDI. No .NET, no CRT DLL:
  * only system DLLs that ship with Windows. Build to Starfield.scr (see build.bat / README.md).
  *
  * Command line (Windows contract): /s run, /p <hwnd> preview, /c[:hwnd] or no argument = settings.
