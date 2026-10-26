@@ -27,6 +27,7 @@ All versions share the same algorithm and settings (speed, trail length, star de
 
 - **HTML**: try it instantly in a browser; not a real screensaver (fullscreen mode just keeps the screen awake).
   Controls: `F`/double-click fullscreen, `↑ ↓`/wheel speed, `← →` trail length, `+ −` star density, `Space` pause.
+  On a phone or tablet, open the [hosted version](https://waschmittel.github.io/starfield/) and use *Add to Home Screen*: it installs as a fullscreen app that keeps the screen awake.
 - **macOS**: the native screensaver for Macs.
 - **Windows GDI**: the smallest, most compatible file (software-only, ~175 KB). **Use this one on old Windows versions.**
 - **Windows Direct2D**: smooth, anti-aliased, GPU-driven rendering on Windows 10+ (~300 KB); best choice for

@@ -3,7 +3,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: [starfield.html, .github/workflows/pages.yml]
+    paths: [starfield.html, manifest.webmanifest, sw.js, icons/**, .github/workflows/pages.yml]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,9 @@ jobs:
       - name: Assemble site
         run: |
           mkdir _site
+          cp starfield.html manifest.webmanifest sw.js _site/
+          cp -r icons _site/icons
+          # index.html for the bare URL; the manifest start_url points at starfield.html
           cp starfield.html _site/index.html
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

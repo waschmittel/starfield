@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Starfield</title>
+<meta name="description" content="Classic starfield screensaver">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Starfield">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; touch-action: none; -webkit-user-select: none; user-select: none;
+         -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   canvas { display: block; width: 100%; height: 100%; }
   body.idle { cursor: none; }
   #hint {
@@ -185,10 +196,14 @@
     }, 2500);
   }
   window.addEventListener('mousemove', wake);
+  window.addEventListener('touchstart', wake, { passive: true });
   showStatus();
 
   let wakeLock = null;
-  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  // An installed PWA (fullscreen/standalone) has no fullscreen API state, so count it as fullscreen.
+  const isInstalled = () => ['fullscreen', 'standalone'].some(m => matchMedia(`(display-mode: ${m})`).matches) ||
+    navigator.standalone === true;
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isInstalled();
   async function updateWakeLock() {
     if (!('wakeLock' in navigator)) return;
     try {
@@ -203,6 +218,13 @@
   document.addEventListener('fullscreenchange', updateWakeLock);
   document.addEventListener('webkitfullscreenchange', updateWakeLock);
   document.addEventListener('visibilitychange', updateWakeLock);
+  updateWakeLock();
+  // Wake lock needs a user gesture on some browsers; retry on first touch/click.
+  window.addEventListener('pointerdown', updateWakeLock, { once: true });
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 })();
 </script>
 </body>
