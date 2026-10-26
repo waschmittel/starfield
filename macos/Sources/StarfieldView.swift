@@ -4,7 +4,7 @@ import ScreenSaver
 /// Native Core Graphics port of starfield.html. A web view can't be used here: the screensaver
 /// host reports it as hidden, so WebKit suspends it and the saver goes black.
 @objc(StarfieldView)
-final class StarfieldView: ScreenSaverView {
+final class StarfieldView: ScreenSaverView, CALayerDelegate {
     private enum Key {
         static let speed = "speed"
         static let trailLength = "trailLength"
@@ -20,6 +20,12 @@ final class StarfieldView: ScreenSaverView {
     private static let near: Float = 1
     private static let spread: Float = 2000
     private static let buckets = 8
+    /// Budget for the backing stores of ALL monitors together. A "looks like 2560x1440" mode on a 4K/5K
+    /// panel would otherwise make Core Graphics rasterize 5120x2880 (14.7 MP) per frame on the CPU,
+    /// which can't keep up. The pixels of every screen added up never exceed one 4K frame; the
+    /// compositor scales each layer to its display.
+    private static let maxTotalBackingPixels: CGFloat = 3840 * 2160
+    private static let minBackingScale: CGFloat = 0.25
 
     private var speed: Float = 6
     private var trailLength: Float = 0.4
@@ -39,6 +45,7 @@ final class StarfieldView: ScreenSaverView {
     private let bucketLen = UnsafeMutablePointer<Int>.allocate(capacity: buckets)
 
     deinit {
+        Self.rebalanceSoon()
         for p in [x, y, z, sx, sy, px, py, sz] { p.deallocate() }
         bucketIdx.deallocate()
         bucketLen.deallocate()
@@ -72,8 +79,73 @@ final class StarfieldView: ScreenSaverView {
 
     private func setUp() {
         animationTimeInterval = 1.0 / 60.0
+        // Layer-hosting view with our own layer so we control its backing resolution (AppKit would
+        // force it to the window's full backing scale). Opaque skips alpha compositing, and
+        // drawsAsynchronously records Core Graphics commands on the main thread but rasterizes them on
+        // a background thread, so slow frames don't block the main run loop (and the display link).
+        let l = CALayer()
+        l.delegate = self
+        l.isOpaque = true
+        l.backgroundColor = CGColor(gray: 0, alpha: 1)
+        l.drawsAsynchronously = true
+        l.contentsGravity = .resize
+        layer = l
+        wantsLayer = true
         for i in 0..<Self.maxStars { respawn(i, anywhere: true) }
         loadConfig()
+    }
+
+    override var isOpaque: Bool { true }
+
+    // Backing resolution. All saver views (one per monitor) live in the same process and share one pixel
+    // budget. They get a common scale factor s, each capped at its display's native scale, chosen so that
+    // sum(points_i * min(native_i, s)^2) <= maxTotalBackingPixels. Small budgets can push s below 1.
+    private final class WeakView { weak var view: StarfieldView?; init(_ v: StarfieldView) { view = v } }
+    private static var liveViews: [WeakView] = []
+
+    private func updateBackingScale() {
+        if window != nil, isAnimating, !Self.liveViews.contains(where: { $0.view === self }) {
+            Self.liveViews.append(WeakView(self))
+        }
+        Self.rebalance()
+    }
+
+    private static func rebalanceSoon() { DispatchQueue.main.async { rebalance() } }
+
+    private static func rebalance() {
+        liveViews.removeAll { $0.view == nil || $0.view?.window == nil || $0.view?.isAnimating != true }
+        let views = liveViews.compactMap { $0.view }
+        let items: [(view: StarfieldView, points: CGFloat, native: CGFloat)] = views.compactMap { v in
+            guard let w = v.window else { return nil }
+            let points = v.bounds.width * v.bounds.height
+            return points > 0 ? (v, points, w.backingScaleFactor) : nil
+        }
+        guard !items.isEmpty else { return }
+        func total(_ s: CGFloat) -> CGFloat { items.reduce(0) { $0 + $1.points * min($1.native, s) * min($1.native, s) } }
+
+        let maxNative = items.map { $0.native }.max() ?? 1
+        var scale = maxNative
+        if total(maxNative) > maxTotalBackingPixels {
+            var lo = minBackingScale, hi = maxNative       // largest s that still fits the budget
+            for _ in 0..<30 {
+                let mid = (lo + hi) / 2
+                if total(mid) <= maxTotalBackingPixels { lo = mid } else { hi = mid }
+            }
+            scale = lo
+        }
+        for item in items {
+            item.view.layer?.contentsScale = max(minBackingScale, min(item.native, scale))
+        }
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        updateBackingScale()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateBackingScale()
     }
 
     private func respawn(_ i: Int, anywhere: Bool) {
@@ -111,17 +183,20 @@ final class StarfieldView: ScreenSaverView {
 
     override func startAnimation() {
         super.startAnimation()
+        updateBackingScale()
         lastTick = CACurrentMediaTime()
         attachDisplayLink()
     }
 
     override func stopAnimation() {
         super.stopAnimation()
+        Self.rebalanceSoon()
         detachDisplayLink()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        updateBackingScale()
         if isAnimating { attachDisplayLink() }
     }
 
@@ -154,7 +229,7 @@ final class StarfieldView: ScreenSaverView {
         let dt = Float(min(4, max(0, (time - lastTick) * 60)))
         lastTick = time
         step(dt: dt)
-        needsDisplay = true
+        layer?.setNeedsDisplay()
     }
 
     private func step(dt: Float) {
@@ -186,10 +261,9 @@ final class StarfieldView: ScreenSaverView {
         }
     }
 
-    override func draw(_ rect: NSRect) {
-        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+    func draw(_ layer: CALayer, in ctx: CGContext) {
         ctx.setFillColor(CGColor(gray: 0, alpha: 1))
-        ctx.fill(bounds)
+        ctx.fill(layer.bounds)
         ctx.setLineCap(.round)
 
         let buckets = Self.buckets
