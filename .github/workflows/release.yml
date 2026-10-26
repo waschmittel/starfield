@@ -107,6 +107,15 @@ jobs:
       - name: Write release notes
         run: |
           cat > notes.md <<'EOF'
+          ## Changes
+
+          - **feature**:
+          - **improvement**: 
+          - **bugfix**:
+          - internal:
+
+          ## Files
+
           |file|for|
           |-|-|
           | Starfield-macos-*.saver.zip | macOS 13+ (Apple Silicon and Intel). |
@@ -124,6 +133,9 @@ jobs:
           |macOS| unzip and double-click `Starfield.saver`. If it is blocked, open **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine Starfield.saver`. Then pick **Starfield** in **System Settings > Screen Saver**|
           |Windows| right-click the `.scr` > **Properties** > tick **Unblock** > OK, then right-click > **Install**. If SmartScreen shows "Windows protected your PC", click **More info > Run anyway**. Your browser may ask you to **Keep** the file first.|
           |HTML|unzip and serve the `starfield/` folder over HTTPS (installable as a PWA), or just open the file locally (no PWA support)|
+
+
+          **Full Changelog**: https://github.com/waschmittel/starfield/compare/v1.0.0...v1.1.0
           EOF
 
       - name: Create release
