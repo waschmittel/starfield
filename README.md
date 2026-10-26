@@ -2,12 +2,11 @@
 
 Classic Windows-style starfield screensaver. For **Mac**, **Windows** and plain **HTML**
 
-![Starfield screensaver](assets/starfield.png)
+Prebuilt screensavers are on the [Releases page](https://github.com/waschmittel/starfield/releases)
 
 **[▶ Try the HTML version in your browser](https://waschmittel.github.io/starfield/)**
 
-Prebuilt screensavers are on the [Releases page](https://github.com/waschmittel/starfield/releases):
-macOS, Windows Direct2D (Windows 10/11) and Windows GDI (**use this one on old Windows versions**).
+![Starfield screensaver](assets/starfield.png)
 
 ## Version Comparison
 
@@ -20,8 +19,6 @@ All versions share the same algorithm and settings (speed, trail length, star de
 | Rendering | Canvas 2D, anti-aliased | Core Graphics, anti-aliased | CPU, not anti-aliased | GPU, anti-aliased |
 | Look | Reference | Close port | Close port, slightly harsher | Close port, smooth |
 | Refresh rate | Browser (`requestAnimationFrame`) | Per-screen `CADisplayLink` (macOS 14+), 60 Hz timer on 13 | `DwmFlush` (compositor rate) | Per-monitor vsync, one thread each |
-| Changing visuals | Edit the HTML/JS | Edit Swift | Edit C | Edit C++ |
-| Needs on target PC | A modern browser | Nothing | Nothing | Nothing |
 | Minimum OS | Any with a modern browser | macOS 13 | Windows 7 | Windows 10 |
 | Toolchain | None | Xcode Command Line Tools | MinGW-w64 (any OS) or MSVC | MinGW-w64 (any OS) or MSVC |
 
