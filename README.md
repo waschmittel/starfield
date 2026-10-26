@@ -4,9 +4,14 @@ Classic Windows-style starfield screensaver. For **Mac**, **Windows** and plain 
 
 ![Starfield screensaver](assets/starfield.png)
 
+**[▶ Try the HTML version in your browser](https://waschmittel.github.io/starfield/)**
+
+Prebuilt screensavers are on the [Releases page](https://github.com/waschmittel/starfield/releases):
+macOS, Windows Direct2D (Windows 10/11) and Windows GDI (**use this one on old Windows versions**).
+
 ## HTML
 
-- `starfield.html` – standalone interactive browser version. `F`/double-click fullscreen (keeps the
+- `starfield.html` – ([live demo](https://waschmittel.github.io/starfield/)) standalone interactive browser version. `F`/double-click fullscreen (keeps the
   screen awake), `↑ ↓`/wheel speed, `← →` trail length, `+ −` star density, `Space` pause.
 
 ## macOS

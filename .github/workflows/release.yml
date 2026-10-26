@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: Build macOS screensaver
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Compute version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            v="${GITHUB_REF#refs/tags/}"; v="${v#v}"
+          else
+            v="snap-$(date -u +%Y-%m-%d)"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: macos/build.sh
+
+      - name: Package
+        run: |
+          ditto -c -k --keepParent macos/build/Starfield.saver \
+            "Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip
+          path: Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip
+
+  windows:
+    name: Build Windows screensavers (MinGW on Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Compute version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            v="${GITHUB_REF#refs/tags/}"; v="${v#v}"
+          else
+            v="snap-$(date -u +%Y-%m-%d)"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Install MinGW-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+
+      - name: Build Direct2D
+        run: windows-direct2d/build.sh
+
+      - name: Build GDI
+        run: windows-gdi/build.sh
+
+      - name: Rename
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          mkdir out
+          cp windows-direct2d/dist/Starfield.scr "out/Starfield-windows-direct2d-$v.scr"
+          cp windows-gdi/dist/Starfield.scr "out/Starfield-windows-gdi-legacy-$v.scr"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-${{ steps.ver.outputs.version }}
+          path: out/*
+
+  release:
+    name: Create Release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+
+      - name: Add HTML version
+        run: |
+          v="${GITHUB_REF#refs/tags/}"; v="${v#v}"
+          mkdir -p artifacts/html
+          cp starfield.html "artifacts/html/Starfield-$v.html"
+
+      - name: Write release notes
+        run: |
+          cat > notes.md <<'EOF'
+          | File | For |
+          |---|---|
+          | `Starfield-macos-*.saver.zip` | **macOS** 13+ (Apple Silicon and Intel). Unzip, then open `Starfield.saver`. |
+          | `Starfield-windows-direct2d-*.scr` | **Windows 10 / 11** (recommended): GPU-accelerated, anti-aliased, per-monitor vsync. |
+          | `Starfield-windows-gdi-legacy-*.scr` | **Old Windows versions (Windows 7 / 8 / 8.1)**: use this one if the Direct2D version does not run. CPU-rendered, tiny. |
+          | `Starfield-*.html` | Plain **HTML** version, opens in any browser. Also hosted on GitHub Pages: https://waschmittel.github.io/starfield/ |
+
+          To install a `.scr` on Windows, right-click it and choose **Install**.
+          EOF
+
+      - name: Create release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: artifacts/**/*
+          body_path: notes.md
+          generate_release_notes: true
