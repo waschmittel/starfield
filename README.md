@@ -32,11 +32,11 @@ All versions share the same algorithm and settings (speed, trail length, star de
 
 The two Windows versions share their settings (`HKCU\Software\Starfield`).
 
-## Unsigned files (macOS and Windows)
+## Installation (macOS and Windows)
 
-The prebuilt screensavers are not signed with a paid Apple Developer ID or a Windows code-signing
-certificate, so the operating systems warn about them. The build is open source and produced by
-the [release workflow](.github/workflows/release.yml); you can also build it yourself.
+> [!NOTE]
+> I have no paid Apple Developer ID or Windows code-signing certificate, so macOS and Windows **will warn about the downloads**.
+> The build is open source and produced by the [release workflow](.github/workflows/release.yml), so you can also build it yourself using the provided scripts.
 
 ### macOS
 
