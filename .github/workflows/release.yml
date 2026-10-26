@@ -14,7 +14,7 @@ jobs:
     name: Build macOS screensaver
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Compute version
         id: ver
@@ -35,7 +35,7 @@ jobs:
           ditto -c -k --keepParent macos/build/Starfield.saver \
             "Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip
           path: Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip
@@ -44,7 +44,7 @@ jobs:
     name: Build Windows screensavers (MinGW on Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Compute version
         id: ver
@@ -74,7 +74,7 @@ jobs:
           cp windows-direct2d/dist/Starfield.scr "out/Starfield-windows-direct2d-$v.scr"
           cp windows-gdi/dist/Starfield.scr "out/Starfield-windows-gdi-legacy-$v.scr"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-${{ steps.ver.outputs.version }}
           path: out/*
@@ -88,9 +88,9 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
 
@@ -114,7 +114,7 @@ jobs:
           EOF
 
       - name: Create release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: artifacts/**/*
           body_path: notes.md
