@@ -52,25 +52,26 @@ share settings. Defaults: speed 6, trail 0.4, 1200 stars. The preview pane caps 
 - Needs Windows 10+; use `../windows-gdi` for Windows 7/8.
 - No device-lost recovery beyond exiting, and windows are not resizable (not needed for a saver).
 
-## Which Windows version?
+## Version Comparison
 
-All build to a `Starfield.scr` with the same settings and behaviour; they differ in how they render.
+All versions share the same algorithm and settings (speed, trail length, star density); they differ in platform and how they render.
 
-| | [`windows-gdi/`](../windows-gdi/README.md) | [`windows-direct2d/`](../windows-direct2d/README.md) |
-|---|---|---|
-| Stack | C + Win32 + GDI | C++ + Direct2D/D3D11 |
-| Rendering | CPU, not anti-aliased | GPU, anti-aliased |
-| Look | Close port, slightly harsher | Close port, smooth |
-| Refresh rate | `DwmFlush` (compositor rate) | Per-monitor vsync, one thread each |
-| Changing visuals | Edit C | Edit C++ |
-| Size | ~175 KB | ~300 KB |
-| Needs on target PC | Nothing | Nothing (Windows 10+) |
-| Overhead | Light, CPU-bound at high res | Light, GPU-bound |
-| Minimum Windows | 7 | 10 |
-| Toolchain | MinGW-w64 (any OS) or MSVC | MinGW-w64 (any OS) or MSVC |
+| | [HTML](../starfield.html) | [macOS](../macos/README.md) | [Windows GDI](../windows-gdi/README.md) | [Windows Direct2D](../windows-direct2d/README.md) |
+|---|---|---|---|---|
+| Type | Web page (also [hosted](https://waschmittel.github.io/starfield/)) | `Starfield.saver` | `Starfield.scr` | `Starfield.scr` |
+| Stack | HTML + JS canvas | Swift + Core Graphics | C + Win32 + GDI | C++ + Direct2D/D3D11 |
+| Rendering | Canvas 2D, anti-aliased | Core Graphics, anti-aliased | CPU, not anti-aliased | GPU, anti-aliased |
+| Look | Reference | Close port | Close port, slightly harsher | Close port, smooth |
+| Refresh rate | Browser (`requestAnimationFrame`) | Per-screen `CADisplayLink` (macOS 14+), 60 Hz timer on 13 | `DwmFlush` (compositor rate) | Per-monitor vsync, one thread each |
+| Changing visuals | Edit the HTML/JS | Edit Swift | Edit C | Edit C++ |
+| Needs on target PC | A modern browser | Nothing | Nothing | Nothing |
+| Minimum OS | Any with a modern browser | macOS 13 | Windows 7 | Windows 10 |
+| Toolchain | None | Xcode Command Line Tools | MinGW-w64 (any OS) or MSVC | MinGW-w64 (any OS) or MSVC |
 
-- **`windows-gdi/`**: pick it for the smallest, most compatible file (works back to Windows 7, software-only). **Use this one on old Windows versions.**
-- **`windows-direct2d/`**: pick it for smooth, anti-aliased, GPU-driven rendering on modern machines
-  without any runtime dependency; best choice for high-resolution and high-refresh-rate monitors.
+- **HTML**: try it instantly in a browser; not a real screensaver (fullscreen mode just keeps the screen awake).
+- **macOS**: the native screensaver for Macs.
+- **Windows GDI**: the smallest, most compatible file (software-only, ~175 KB). **Use this one on old Windows versions.**
+- **Windows Direct2D**: smooth, anti-aliased, GPU-driven rendering on Windows 10+ (~300 KB); best choice for
+  high-resolution and high-refresh-rate monitors.
 
-Settings are shared by both versions (`HKCU\Software\Starfield`).
+The two Windows versions share their settings (`HKCU\Software\Starfield`).
