@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * Starfield screensaver, Direct2D on a D3D11/DXGI flip-model swap chain. GPU-accelerated and
  * anti-aliased, one render thread per monitor, each paced by its own display's vblank.

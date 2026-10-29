@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /* Minimal offline cache so the installed app starts without a network. Bump CACHE on changes. */
 const CACHE = 'starfield-v1';
 const ASSETS = [

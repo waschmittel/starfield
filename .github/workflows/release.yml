@@ -100,7 +100,7 @@ jobs:
           mkdir -p site/starfield artifacts/html
           cp starfield.html site/starfield/
           cp starfield.html site/starfield/index.html
-          cp manifest.webmanifest sw.js site/starfield/
+          cp manifest.webmanifest sw.js LICENSE site/starfield/
           cp -r icons site/starfield/icons
           (cd site && zip -qr "../artifacts/html/Starfield-html-$v.zip" starfield)
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * Starfield screensaver, plain Win32 + GDI. No .NET, no CRT DLL:
  * only system DLLs that ship with Windows. Build to Starfield.scr (see build.bat / README.md).

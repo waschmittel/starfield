@@ -18,7 +18,7 @@ done
 lipo -create build/tmp/Starfield-arm64e build/tmp/Starfield-x86_64 -output "$OUT/Contents/MacOS/Starfield"
 
 cp Info.plist "$OUT/Contents/Info.plist"
-cp Resources/thumbnail.png Resources/thumbnail@2x.png "$OUT/Contents/Resources/"
+cp Resources/thumbnail.png Resources/thumbnail@2x.png ../LICENSE "$OUT/Contents/Resources/"
 rm -rf build/tmp
 
 codesign --force --deep --sign "${SIGN_ID:--}" "$OUT"

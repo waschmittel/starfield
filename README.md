@@ -68,3 +68,8 @@ All versions share the same algorithm and settings (speed, trail length, star de
 
 The two Windows versions share their settings (`HKCU\Software\Starfield`).
 </details>
+
+## License
+
+Licensed under the [GNU General Public License v3.0](LICENSE).
+
