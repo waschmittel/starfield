@@ -28,12 +28,15 @@
   }
   #hint { text-align: center; }
   #hint b { color: #cde; font-weight: 600; }
-  #hint.hide { opacity: 0; }
+  #hint a { color: #9ab; pointer-events: auto; }
+  #hint a:hover { color: #cde; }
+  #hint.hide { opacity: 0; pointer-events: none; }
+  #hint.hide a { pointer-events: none; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="hint"><b>F</b> / double-click fullscreen &nbsp;·&nbsp; <b>↑ ↓</b> / wheel speed &nbsp;·&nbsp; <b>← →</b> trail length &nbsp;·&nbsp; <b>+ −</b> density &nbsp;·&nbsp; <b>Space</b> pause<br><span id="status"></span></div>
+<div id="hint"><b>F</b> / double-click fullscreen &nbsp;·&nbsp; <b>↑ ↓</b> / wheel speed &nbsp;·&nbsp; <b>← →</b> trail length &nbsp;·&nbsp; <b>+ −</b> density &nbsp;·&nbsp; <b>Space</b> pause<br><span id="status"></span> &nbsp;·&nbsp; <a href="https://github.com/waschmittel/starfield" target="_blank" rel="noopener">GPLv3 · Source</a></div>
 <script>
 (() => {
   'use strict';

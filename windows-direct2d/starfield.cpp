@@ -10,6 +10,7 @@
 #define _WIN32_WINNT 0x0A00
 #include <windows.h>
 #include <commctrl.h>
+#include <shellapi.h>
 #include <d2d1_1.h>
 #include <d3d11.h>
 #include <dxgi1_3.h>
@@ -416,10 +417,11 @@ static int run_saver(HINSTANCE inst, HWND previewParent) {
 
 /* ---------- settings dialog (plain window with trackbars, no resource file needed) ---------- */
 
-enum { ID_SPEED = 101, ID_TRAIL, ID_STARS, ID_LSPEED, ID_LTRAIL, ID_LSTARS };
+enum { ID_SPEED = 101, ID_TRAIL, ID_STARS, ID_LSPEED, ID_LTRAIL, ID_LSTARS, ID_SOURCE };
 
 static Settings g_dlg;
-static HWND g_tb[3], g_lbl[3];
+static HWND g_tb[3], g_lbl[3], g_link;
+static HFONT g_linkFont;
 
 static void update_labels(void) {
     wchar_t buf[32];
@@ -435,6 +437,10 @@ static LRESULT CALLBACK config_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE: {
         HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        LOGFONTW lf;
+        GetObjectW(font, sizeof lf, &lf);
+        lf.lfUnderline = TRUE;
+        g_linkFont = CreateFontIndirectW(&lf);
         static const wchar_t *names[3] = { L"Speed", L"Trail length", L"Star density" };
         static const int lo[3] = { 5, 0, 50 }, hi[3] = { 300, 40, MAX_STARS };
         int pos[3] = { (int)(g_dlg.speed * 10 + 0.5f), (int)(g_dlg.trail * 10 + 0.5f), g_dlg.stars };
@@ -452,13 +458,28 @@ static LRESULT CALLBACK config_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SendMessageW(g_tb[2], TBM_SETLINESIZE, 0, 50);
         SendMessageW(g_tb[2], TBM_SETPAGESIZE, 0, 250);
         SendMessageW(g_tb[2], TBM_SETTICFREQ, 500, 0);
+        g_link = CreateWindowW(L"STATIC", L"GPLv3 \x00B7 Source code", WS_CHILD | WS_VISIBLE | SS_NOTIFY, 16, 161, 180, 20, hwnd, (HMENU)ID_SOURCE, NULL, NULL);
         HWND ok = CreateWindowW(L"BUTTON", L"OK", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, 210, 156, 76, 26, hwnd, (HMENU)IDOK, NULL, NULL);
         HWND cancel = CreateWindowW(L"BUTTON", L"Cancel", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 294, 156, 76, 26, hwnd, (HMENU)IDCANCEL, NULL, NULL);
+        SendMessageW(g_link, WM_SETFONT, (WPARAM)g_linkFont, TRUE);
         SendMessageW(ok, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessageW(cancel, WM_SETFONT, (WPARAM)font, TRUE);
         update_labels();
         return 0;
     }
+    case WM_CTLCOLORSTATIC:
+        if ((HWND)lp == g_link) {
+            SetTextColor((HDC)wp, RGB(0, 102, 204));
+            SetBkMode((HDC)wp, TRANSPARENT);
+            return (LRESULT)GetSysColorBrush(COLOR_BTNFACE);
+        }
+        break;
+    case WM_SETCURSOR:
+        if ((HWND)wp == g_link) {
+            SetCursor(LoadCursorW(NULL, IDC_HAND));
+            return TRUE;
+        }
+        break;
     case WM_HSCROLL:
         update_labels();
         return 0;
@@ -472,12 +493,15 @@ static LRESULT CALLBACK config_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DestroyWindow(hwnd);
         } else if (LOWORD(wp) == IDCANCEL) {
             DestroyWindow(hwnd);
+        } else if (LOWORD(wp) == ID_SOURCE && HIWORD(wp) == STN_CLICKED) {
+            ShellExecuteW(hwnd, L"open", L"https://github.com/waschmittel/starfield", NULL, NULL, SW_SHOWNORMAL);
         }
         return 0;
     case WM_CLOSE:
         DestroyWindow(hwnd);
         return 0;
     case WM_DESTROY:
+        if (g_linkFont) DeleteObject(g_linkFont);
         PostQuitMessage(0);
         return 0;
     }

@@ -326,16 +326,32 @@ final class ConfigSheet: NSObject {
         grid.column(at: 0).xPlacement = .trailing
         grid.column(at: 2).width = 50
 
+        let linkText = NSMutableAttributedString(string: "GPLv3 · Source code", attributes: [
+            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ])
+        let range = (linkText.string as NSString).range(of: "Source code")
+        linkText.addAttributes([
+            .link: URL(string: "https://github.com/waschmittel/starfield")!,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+        ], range: range)
+        let licenseLabel = NSTextField(labelWithAttributedString: linkText)
+        licenseLabel.allowsEditingTextAttributes = true
+        licenseLabel.isSelectable = true
+
         let ok = NSButton(title: "OK", target: self, action: #selector(save))
         ok.keyEquivalent = "\r"
         let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelTapped))
         cancel.keyEquivalent = "\u{1b}"
-        let buttons = NSStackView(views: [cancel, ok])
-        buttons.spacing = 8
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let footer = NSStackView(views: [licenseLabel, spacer, cancel, ok])
+        footer.spacing = 8
+        footer.alignment = .centerY
 
-        let root = NSStackView(views: [grid, buttons])
+        let root = NSStackView(views: [grid, footer])
         root.orientation = .vertical
-        root.alignment = .trailing
+        root.alignment = .width
         root.spacing = 20
         root.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         window.contentView = root

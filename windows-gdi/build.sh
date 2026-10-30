@@ -4,5 +4,5 @@ set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p dist
 x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -municode -mwindows -static \
-  -o dist/Starfield.scr starfield.c -lgdi32 -luser32 -ladvapi32 -ldwmapi -lcomctl32
+  -o dist/Starfield.scr starfield.c -lgdi32 -luser32 -ladvapi32 -ldwmapi -lcomctl32 -lshell32
 echo "Built dist/Starfield.scr"
