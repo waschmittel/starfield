@@ -130,7 +130,7 @@ jobs:
 
           |file|installation|
           |-|-|
-          |macOS| unzip and double-click `Starfield.saver`. If it is blocked, open **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine Starfield.saver`. Then pick **Starfield** in **System Settings > Screen Saver**|
+          |macOS| `brew install waschmittel/starfield/starfield`, or unzip and double-click `Starfield.saver`. If it is blocked, open **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine Starfield.saver`. Then pick **Starfield** in **System Settings > Screen Saver**|
           |Windows| right-click the `.scr` > **Properties** > tick **Unblock** > OK, then right-click > **Install**. If SmartScreen shows "Windows protected your PC", click **More info > Run anyway**. Your browser may ask you to **Keep** the file first.|
           |HTML|unzip and serve the `starfield/` folder over HTTPS (installable as a PWA), or just open the file locally (no PWA support)|
 
@@ -144,3 +144,64 @@ jobs:
           files: artifacts/**/*
           body_path: notes.md
           generate_release_notes: true
+
+  homebrew:
+    name: Update Homebrew tap
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artifacts
+
+      - name: Rewrite cask and push to tap
+        shell: bash
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          v="${tag#v}"
+          zip="artifacts/Starfield-macos-$v.saver.zip/Starfield-macos-$v.saver.zip"
+          sha=$(sha256sum "$zip" | cut -d' ' -f1)
+
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-starfield.git" tap
+          mkdir -p tap/Casks
+          cat > tap/Casks/starfield.rb <<EOF
+          cask "starfield" do
+            version "$v"
+            sha256 "$sha"
+
+            url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v#{version}/Starfield-macos-#{version}.saver.zip"
+            name "Starfield"
+            desc "Classic Windows-style starfield screensaver"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
+
+            depends_on macos: ">= :sonoma"
+
+            screen_saver "Starfield.saver"
+
+            # The saver is only ad-hoc signed, so macOS would refuse to load a quarantined copy.
+            postflight do
+              system_command "/usr/bin/xattr",
+                             args: ["-dr", "com.apple.quarantine", "#{Dir.home}/Library/Screen Savers/Starfield.saver"]
+            end
+
+            zap trash: "~/Library/Preferences/ByHost/de.flubba.starfield.saver.*.plist"
+          end
+          EOF
+
+          cd tap
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Cask already up to date"
+            exit 0
+          fi
+          git add Casks/starfield.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update starfield to $v"
+          git push

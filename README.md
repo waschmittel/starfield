@@ -19,6 +19,13 @@ Prebuilt screensavers are on the [Releases page](https://github.com/waschmittel/
 <details>
 <summary>installing on macOS</summary>
 
+With [Homebrew](https://brew.sh) (also removes the quarantine flag for you):
+```bash
+brew install waschmittel/starfield/starfield
+```
+
+Or manually:
+
 1. Unzip and double-click `Starfield.saver`. If macOS refuses, open **System Settings > Privacy & Security**,
    scroll down and click **Open Anyway** next to the Starfield message, then confirm.
 2. Or remove the download quarantine flag in Terminal before installing:

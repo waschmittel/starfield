@@ -21,7 +21,7 @@ killall legacyScreenSaver WallpaperAgent
 ## Settings
 
 Speed, trail length (0–4) and star density (50–5000). Stored with `ScreenSaverDefaults`
-(module `com.example.starfield.saver`). Defaults: speed 6, trail 0.4, 1200 stars. The preview pane
+(module `de.flubba.starfield.saver`). Defaults: speed 6, trail 0.4, 1200 stars. The preview pane
 caps stars at 300.
 
 ## How it works
@@ -58,7 +58,7 @@ Developer ID and notarize:
 SIGN_ID="Developer ID Application: Your Name (TEAMID)" ./build.sh
 ```
 
-The bundle identifier is `com.example.starfield.saver` (`Info.plist`); change it before distributing.
+The bundle identifier is `de.flubba.starfield.saver` (`Info.plist`). It also names the settings domain, so changing it resets users' settings.
 
 ## Icon
 
