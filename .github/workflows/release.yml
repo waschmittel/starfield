@@ -181,14 +181,15 @@ jobs:
             desc "Classic Windows-style starfield screensaver"
             homepage "https://github.com/${GITHUB_REPOSITORY}"
 
-            depends_on macos: ">= :sonoma"
+            depends_on macos: :sonoma
 
             screen_saver "Starfield.saver"
 
             # The saver is only ad-hoc signed, so macOS would refuse to load a quarantined copy.
-            postflight do
-              system_command "/usr/bin/xattr",
-                             args: ["-dr", "com.apple.quarantine", "#{Dir.home}/Library/Screen Savers/Starfield.saver"]
+            postflight_steps do
+              run "/usr/bin/xattr",
+                  args:           ["-dr", "com.apple.quarantine", "~/Library/Screen Savers/Starfield.saver"],
+                  writable_paths: ["~/Library/Screen Savers/Starfield.saver"]
             end
 
             zap trash: "~/Library/Preferences/ByHost/de.flubba.starfield.saver.*.plist"
