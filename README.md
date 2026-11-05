@@ -51,8 +51,8 @@ All versions share the same algorithm and settings (speed, trail length, star de
 | | [HTML](starfield.html) | [macOS](macos/README.md) | [Windows GDI](windows-gdi/README.md) | [Windows Direct2D](windows-direct2d/README.md) |
 |---|---|---|---|---|
 | Type | Web page (also [hosted](https://waschmittel.github.io/starfield/)) | `Starfield.saver` | `Starfield.scr` | `Starfield.scr` |
-| Stack | HTML + JS canvas | Swift + Core Graphics | C + Win32 + GDI | C++ + Direct2D/D3D11 |
-| Rendering | Canvas 2D, anti-aliased | Core Graphics, anti-aliased | CPU, not anti-aliased | GPU, anti-aliased |
+| Stack | HTML + JS canvas | Swift + Metal | C + Win32 + GDI | C++ + Direct2D/D3D11 |
+| Rendering | Canvas 2D, anti-aliased | Metal (GPU), anti-aliased | CPU, not anti-aliased | GPU, anti-aliased |
 | Look | Reference | Close port | Close port, slightly harsher | Close port, smooth |
 | Refresh rate | Browser (`requestAnimationFrame`) | Per-screen `CAMetalDisplayLink` | `DwmFlush` (compositor rate) | Per-monitor vsync, one thread each |
 | Minimum OS | Any with a modern browser | macOS 14 | Windows 7 | Windows 10 |

@@ -2,10 +2,10 @@
 import AppKit
 import ScreenSaver
 
-/// Native Core Graphics port of starfield.html. A web view can't be used here: the screensaver
+/// Native port of starfield.html, drawn by `MetalRenderer`. A web view can't be used here: the screensaver
 /// host reports it as hidden, so WebKit suspends it and the saver goes black.
 @objc(StarfieldView)
-final class StarfieldView: ScreenSaverView, CALayerDelegate {
+final class StarfieldView: ScreenSaverView {
     private enum Key {
         static let speed = "speed"
         static let trailLength = "trailLength"
@@ -21,13 +21,6 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     private static let near: Float = 1
     private static let spread: Float = 2000
     private static let buckets = 8
-    /// Budget for the backing stores of ALL monitors together. A "looks like 2560x1440" mode on a 4K/5K
-    /// panel would otherwise make Core Graphics rasterize 5120x2880 (14.7 MP) per frame on the CPU,
-    /// which can't keep up. The pixels of every screen added up never exceed one 4K frame; the
-    /// compositor scales each layer to its display.
-    private static let maxTotalBackingPixels: CGFloat = 3840 * 2160
-    private static let minBackingScale: CGFloat = 0.25
-
     private var speed: Float = 6
     private var trailLength: Float = 0.4
     private var starCount = 1200
@@ -46,20 +39,15 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     private let bucketLen = UnsafeMutablePointer<Int>.allocate(capacity: buckets)
 
     deinit {
-        Self.rebalanceSoon()
         for p in [x, y, z, sx, sy, px, py, sz] { p.deallocate() }
         bucketIdx.deallocate()
         bucketLen.deallocate()
     }
 
-    private let colors: [CGColor] = (0..<buckets).map { b in
-        let v = CGFloat(70 + 185 * Double(b) / Double(buckets - 1)) / 255
-        return CGColor(gray: v, alpha: 1)
-    }
-
     private var metal: MetalRenderer?
+    private var messageLayer: CATextLayer?   // shown instead of the stars when Metal is unavailable
     private var lastTick = CACurrentMediaTime()
-    private var displayLink: AnyObject?   // CAMetalDisplayLink, or CADisplayLink in the Core Graphics fallback
+    private var displayLink: CAMetalDisplayLink?
     private var configSheet: ConfigSheet?
 
     private var defaults: ScreenSaverDefaults? {
@@ -80,22 +68,22 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     }
 
     private func setUp() {
-        // Metal is the normal path (GPU rasterization, native resolution). Without it we fall back to Core
-        // Graphics, described below. Layer-hosting view with our own layer so we control its backing resolution (AppKit would
-        // force it to the window's full backing scale). Opaque skips alpha compositing, and
-        // drawsAsynchronously records Core Graphics commands on the main thread but rasterizes them on
-        // a background thread, so slow frames don't block the main run loop (and the display link).
+        // Layer-hosting view with the renderer's own Metal layer, so AppKit doesn't manage its backing
+        // scale. Without Metal (e.g. in some VMs) it shows a message instead; the reason is logged.
         if let m = MetalRenderer(capacity: Self.maxStars) {
             metal = m
             layer = m.layer
         } else {
-            let l = CALayer()
-            l.delegate = self
-            l.isOpaque = true
-            l.backgroundColor = CGColor(gray: 0, alpha: 1)
-            l.drawsAsynchronously = true
-            l.contentsGravity = .resize
-            layer = l
+            let root = CALayer()
+            root.backgroundColor = CGColor(gray: 0, alpha: 1)
+            let text = CATextLayer()
+            text.string = "Starfield needs Metal, which is not available on this system."
+            text.alignmentMode = .center
+            text.fontSize = 16
+            text.foregroundColor = CGColor(gray: 0.5, alpha: 1)
+            root.addSublayer(text)
+            messageLayer = text
+            layer = root
         }
         wantsLayer = true
         for i in 0..<Self.maxStars { respawn(i, anywhere: true) }
@@ -104,52 +92,21 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
 
     override var isOpaque: Bool { true }
 
-    // Backing resolution. All saver views (one per monitor) live in the same process and share one pixel
-    // budget. They get a common scale factor s, each capped at its display's native scale, chosen so that
-    // sum(points_i * min(native_i, s)^2) <= maxTotalBackingPixels. Small budgets can push s below 1.
-    private final class WeakView { weak var view: StarfieldView?; init(_ v: StarfieldView) { view = v } }
-    private static var liveViews: [WeakView] = []
-
-    private func updateBackingScale() {
-        if let metal {
-            if let w = window {
-                layer?.contentsScale = w.backingScaleFactor
-                metal.resize(size: bounds.size, scale: w.backingScaleFactor)
-            }
-            return
-        }
-        if window != nil, isAnimating, !Self.liveViews.contains(where: { $0.view === self }) {
-            Self.liveViews.append(WeakView(self))
-        }
-        Self.rebalance()
+    private func layoutMessage() {
+        guard let text = messageLayer else { return }
+        let height = text.fontSize * 1.5
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        text.frame = CGRect(x: 0, y: (bounds.height - height) / 2, width: bounds.width, height: height)
+        text.contentsScale = window?.backingScaleFactor ?? 2
+        CATransaction.commit()
     }
 
-    private static func rebalanceSoon() { DispatchQueue.main.async { rebalance() } }
-
-    private static func rebalance() {
-        liveViews.removeAll { $0.view == nil || $0.view?.window == nil || $0.view?.isAnimating != true }
-        let views = liveViews.compactMap { $0.view }
-        let items: [(view: StarfieldView, points: CGFloat, native: CGFloat)] = views.compactMap { v in
-            guard let w = v.window else { return nil }
-            let points = v.bounds.width * v.bounds.height
-            return points > 0 ? (v, points, w.backingScaleFactor) : nil
-        }
-        guard !items.isEmpty else { return }
-        func total(_ s: CGFloat) -> CGFloat { items.reduce(0) { $0 + $1.points * min($1.native, s) * min($1.native, s) } }
-
-        let maxNative = items.map { $0.native }.max() ?? 1
-        var scale = maxNative
-        if total(maxNative) > maxTotalBackingPixels {
-            var lo = minBackingScale, hi = maxNative       // largest s that still fits the budget
-            for _ in 0..<30 {
-                let mid = (lo + hi) / 2
-                if total(mid) <= maxTotalBackingPixels { lo = mid } else { hi = mid }
-            }
-            scale = lo
-        }
-        for item in items {
-            item.view.layer?.contentsScale = max(minBackingScale, min(item.native, scale))
-        }
+    private func updateBackingScale() {
+        layoutMessage()
+        guard let metal, let w = window else { return }
+        layer?.contentsScale = w.backingScaleFactor
+        metal.resize(size: bounds.size, scale: w.backingScaleFactor)
     }
 
     override func viewDidChangeBackingProperties() {
@@ -204,7 +161,6 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
 
     override func stopAnimation() {
         super.stopAnimation()
-        Self.rebalanceSoon()
         detachDisplayLink()
     }
 
@@ -218,44 +174,26 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     // which AppKit's fixed-interval timer can't match.
     private func attachDisplayLink() {
         detachDisplayLink()
-        guard window != nil else { return }
-        if let metal {
-            let link = metal.makeDisplayLink { [weak self] update in
-                self?.advance(to: update.targetPresentationTimestamp, drawable: update.drawable)
-            }
-            link.add(to: .main, forMode: .common)
-            displayLink = link
-            lastTick = CACurrentMediaTime()
-            return
+        guard let metal, window != nil else { return }
+        let link = metal.makeDisplayLink { [weak self] update in
+            self?.advance(to: update.targetPresentationTimestamp, drawable: update.drawable)
         }
-        let link = displayLink(target: self, selector: #selector(displayLinkFired(_:)))
         link.add(to: .main, forMode: .common)
         displayLink = link
         lastTick = CACurrentMediaTime()
     }
 
     private func detachDisplayLink() {
-        (displayLink as? CADisplayLink)?.invalidate()
-        (displayLink as? CAMetalDisplayLink)?.invalidate()
+        displayLink?.invalidate()
         displayLink = nil
     }
 
-    @objc private func displayLinkFired(_ link: CADisplayLink) {
-        advance(to: link.targetTimestamp)
-    }
-
-    private func advance(to time: CFTimeInterval, drawable: CAMetalDrawable? = nil) {
+    private func advance(to time: CFTimeInterval, drawable: CAMetalDrawable) {
         let dt = Float(min(4, max(0, (time - lastTick) * 60)))
         lastTick = time
         step(dt: dt)
-        if let metal {
-            if let drawable {
-                let scale = window?.backingScaleFactor ?? layer?.contentsScale ?? 1
-                metal.render(size: bounds.size, scale: scale, drawable: drawable) { fillInstances($0) }
-            }
-        } else {
-            layer?.setNeedsDisplay()
-        }
+        let scale = window?.backingScaleFactor ?? layer?.contentsScale ?? 1
+        metal?.render(size: bounds.size, scale: scale, drawable: drawable) { fillInstances($0) }
     }
 
     /// Writes the visible stars as GPU instances (see `MetalRenderer`), dimmest bucket first so brighter
@@ -309,35 +247,6 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
             let b = min(buckets - 1, Int(t * Float(buckets)))
             bucketIdx[b * Self.maxStars + bucketLen[b]] = Int32(i)
             bucketLen[b] += 1
-        }
-    }
-
-    func draw(_ layer: CALayer, in ctx: CGContext) {
-        ctx.setFillColor(CGColor(gray: 0, alpha: 1))
-        ctx.fill(layer.bounds)
-        ctx.setLineCap(.round)
-
-        let buckets = Self.buckets
-        for b in 0..<buckets {
-            let n = bucketLen[b]
-            if n == 0 { continue }
-            if trailLength > 0 {
-                ctx.setStrokeColor(colors[b])
-                ctx.setLineWidth(CGFloat(0.6 + Float(b) / Float(buckets - 1) * 2.4))
-                for j in 0..<n {
-                    let i = Int(bucketIdx[b * Self.maxStars + j])
-                    ctx.move(to: CGPoint(x: CGFloat(px[i]), y: CGFloat(py[i])))
-                    ctx.addLine(to: CGPoint(x: CGFloat(sx[i]), y: CGFloat(sy[i])))
-                }
-                ctx.strokePath()
-            } else {
-                ctx.setFillColor(colors[b])
-                for j in 0..<n {
-                    let i = Int(bucketIdx[b * Self.maxStars + j])
-                    let s = CGFloat(sz[i])
-                    ctx.fill(CGRect(x: CGFloat(sx[i]) - s / 2, y: CGFloat(sy[i]) - s / 2, width: s, height: s))
-                }
-            }
         }
     }
 }

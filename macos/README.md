@@ -30,8 +30,8 @@ caps stars at 300.
   on the CPU; drawing is done on the GPU by `Sources/MetalRenderer.swift` (a `CAMetalLayer`, one instanced
   quad per star, anti-aliased capsule in the fragment shader, native display resolution). The shader is
   compiled from source at runtime because the Command Line Tools have no `metal` compiler.
-- If Metal is unavailable or the shader fails to build, the view falls back to a Core Graphics renderer
-  (CPU, shared 4K backing-pixel budget across monitors).
+- Without a usable Metal device (or if the shader fails to build) the saver shows a short message on a
+  black screen and logs the specific reason (see Debugging below).
 - Frames are driven by a per-screen `CAMetalDisplayLink`, so it matches 60/120/144 Hz and ProMotion
   displays. It hands out a ready drawable per refresh; calling `nextDrawable()` from a plain
   `CADisplayLink` callback blocked the main thread and caused periodic stutter.

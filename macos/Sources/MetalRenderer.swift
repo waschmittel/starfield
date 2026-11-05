@@ -59,14 +59,26 @@ final class MetalRenderer {
 
     private struct Uniforms { var view: SIMD2<Float>; var px: Float }
 
-    /// Returns nil if there is no usable Metal device or the shader fails to build; the caller then falls back
-    /// to Core Graphics.
+    /// Returns nil, after logging the reason, if there is no usable Metal device or the shader fails to build.
     init?(capacity: Int) {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let queue = device.makeCommandQueue(),
-              let library = try? device.makeLibrary(source: Self.source, options: nil),
-              let vs = library.makeFunction(name: "starVertex"),
-              let fs = library.makeFunction(name: "starFragment") else { return nil }
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            NSLog("Starfield: no Metal device available")
+            return nil
+        }
+        guard let queue = device.makeCommandQueue() else {
+            NSLog("Starfield: cannot create a Metal command queue on \(device.name)")
+            return nil
+        }
+        let library: MTLLibrary
+        do { library = try device.makeLibrary(source: Self.source, options: nil) } catch {
+            NSLog("Starfield: shader compilation failed: \(error)")
+            return nil
+        }
+        guard let vs = library.makeFunction(name: "starVertex"),
+              let fs = library.makeFunction(name: "starFragment") else {
+            NSLog("Starfield: shader functions missing from the compiled library")
+            return nil
+        }
 
         let desc = MTLRenderPipelineDescriptor()
         desc.vertexFunction = vs
@@ -78,12 +90,19 @@ final class MetalRenderer {
         att.destinationRGBBlendFactor = .oneMinusSourceAlpha
         att.sourceAlphaBlendFactor = .one
         att.destinationAlphaBlendFactor = .zero
-        guard let pipeline = try? device.makeRenderPipelineState(descriptor: desc) else { return nil }
+        let pipeline: MTLRenderPipelineState
+        do { pipeline = try device.makeRenderPipelineState(descriptor: desc) } catch {
+            NSLog("Starfield: cannot create the render pipeline: \(error)")
+            return nil
+        }
 
         let length = capacity * Self.floatsPerInstance * MemoryLayout<Float>.stride
         var buffers: [MTLBuffer] = []
         for _ in 0..<Self.framesInFlight {
-            guard let b = device.makeBuffer(length: length, options: .storageModeShared) else { return nil }
+            guard let b = device.makeBuffer(length: length, options: .storageModeShared) else {
+                NSLog("Starfield: cannot allocate a \(length) byte Metal buffer")
+                return nil
+            }
             buffers.append(b)
         }
 
