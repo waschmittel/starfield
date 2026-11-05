@@ -26,16 +26,22 @@ caps stars at 300.
 
 ## How it works
 
-- `Sources/StarfieldView.swift` is a native Core Graphics port of the algorithm in `../starfield.html`.
-- Frames are driven by a per-screen `CADisplayLink` (macOS 14+), so it matches 60/120/144 Hz and ProMotion
-  displays. On macOS 13 it falls back to AppKit's 60 Hz timer.
+- `Sources/StarfieldView.swift` is a native port of the algorithm in `../starfield.html`. The simulation runs
+  on the CPU; drawing is done on the GPU by `Sources/MetalRenderer.swift` (a `CAMetalLayer`, one instanced
+  quad per star, anti-aliased capsule in the fragment shader, native display resolution). The shader is
+  compiled from source at runtime because the Command Line Tools have no `metal` compiler.
+- If Metal is unavailable or the shader fails to build, the view falls back to a Core Graphics renderer
+  (CPU, shared 4K backing-pixel budget across monitors).
+- Frames are driven by a per-screen `CAMetalDisplayLink`, so it matches 60/120/144 Hz and ProMotion
+  displays. It hands out a ready drawable per refresh; calling `nextDrawable()` from a plain
+  `CADisplayLink` callback blocked the main thread and caused periodic stutter.
 - Hot loops use raw buffers and the build uses `-Ounchecked`; array bounds checks caused stutter.
 
 ## Things learned the hard way
 
 - **Needs an arm64e slice.** `legacyScreenSaver` is arm64e on Apple Silicon; a plain arm64 bundle is not
   loaded (no settings dialog, nothing renders). `build.sh` builds arm64e + x86_64. The Command Line Tools
-  lack x86_64 Swift compatibility libraries below macOS 13, hence the macOS 13 deployment target.
+  lack x86_64 Swift compatibility libraries for old deployment targets; `CAMetalDisplayLink` needs macOS 14 anyway.
 - **No web view.** A `WKWebView` was tried (HTML embedded with `loadHTMLString`; `file://` loads from the
   bundle rendered black). The saver host reports the page as hidden, which suspends
   `requestAnimationFrame` and later the whole web process, so the saver went black after a few seconds.

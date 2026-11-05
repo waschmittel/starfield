@@ -118,7 +118,7 @@ jobs:
 
           |file|for|
           |-|-|
-          | Starfield-macos-*.saver.zip | macOS 13+ (Apple Silicon and Intel). |
+          | Starfield-macos-*.saver.zip | macOS 14+ (Apple Silicon and Intel). |
           | Starfield-windows-direct2d-*.scr | Windows 10 / 11 |
           | Starfield-windows-gdi-legacy-*.scr | Old Windows versions (Windows 7 / 8 / 8.1) |
           | Starfield-html-*.zip | Plain HTML version for self-hosting: unzip and serve the `starfield/` folder over HTTPS (installable as a PWA) |

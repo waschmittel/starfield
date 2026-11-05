@@ -10,10 +10,10 @@ mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources" build/tmp
 
 for arch in arm64e x86_64; do
   swiftc -Ounchecked -parse-as-library -module-name Starfield \
-    -target "$arch-apple-macos13.0" \
-    -framework ScreenSaver -framework AppKit \
+    -target "$arch-apple-macos14.0" \
+    -framework ScreenSaver -framework AppKit -framework Metal -framework QuartzCore \
     -Xlinker -bundle \
-    Sources/StarfieldView.swift -o "build/tmp/Starfield-$arch"
+    Sources/*.swift -o "build/tmp/Starfield-$arch"
 done
 lipo -create build/tmp/Starfield-arm64e build/tmp/Starfield-x86_64 -output "$OUT/Contents/MacOS/Starfield"
 

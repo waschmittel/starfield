@@ -57,8 +57,9 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
         return CGColor(gray: v, alpha: 1)
     }
 
+    private var metal: MetalRenderer?
     private var lastTick = CACurrentMediaTime()
-    private var displayLink: AnyObject?   // CADisplayLink (macOS 14+)
+    private var displayLink: AnyObject?   // CAMetalDisplayLink, or CADisplayLink in the Core Graphics fallback
     private var configSheet: ConfigSheet?
 
     private var defaults: ScreenSaverDefaults? {
@@ -79,18 +80,23 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     }
 
     private func setUp() {
-        animationTimeInterval = 1.0 / 60.0
-        // Layer-hosting view with our own layer so we control its backing resolution (AppKit would
+        // Metal is the normal path (GPU rasterization, native resolution). Without it we fall back to Core
+        // Graphics, described below. Layer-hosting view with our own layer so we control its backing resolution (AppKit would
         // force it to the window's full backing scale). Opaque skips alpha compositing, and
         // drawsAsynchronously records Core Graphics commands on the main thread but rasterizes them on
         // a background thread, so slow frames don't block the main run loop (and the display link).
-        let l = CALayer()
-        l.delegate = self
-        l.isOpaque = true
-        l.backgroundColor = CGColor(gray: 0, alpha: 1)
-        l.drawsAsynchronously = true
-        l.contentsGravity = .resize
-        layer = l
+        if let m = MetalRenderer(capacity: Self.maxStars) {
+            metal = m
+            layer = m.layer
+        } else {
+            let l = CALayer()
+            l.delegate = self
+            l.isOpaque = true
+            l.backgroundColor = CGColor(gray: 0, alpha: 1)
+            l.drawsAsynchronously = true
+            l.contentsGravity = .resize
+            layer = l
+        }
         wantsLayer = true
         for i in 0..<Self.maxStars { respawn(i, anywhere: true) }
         loadConfig()
@@ -105,6 +111,13 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     private static var liveViews: [WeakView] = []
 
     private func updateBackingScale() {
+        if let metal {
+            if let w = window {
+                layer?.contentsScale = w.backingScaleFactor
+                metal.resize(size: bounds.size, scale: w.backingScaleFactor)
+            }
+            return
+        }
         if window != nil, isAnimating, !Self.liveViews.contains(where: { $0.view === self }) {
             Self.liveViews.append(WeakView(self))
         }
@@ -202,10 +215,19 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     }
 
     // A display link fires once per refresh of the screen the view is on (60/120/144 Hz, ProMotion),
-    // which AppKit's fixed-interval timer can't match. Older macOS falls back to the timer.
+    // which AppKit's fixed-interval timer can't match.
     private func attachDisplayLink() {
         detachDisplayLink()
-        guard #available(macOS 14.0, *), window != nil else { return }
+        guard window != nil else { return }
+        if let metal {
+            let link = metal.makeDisplayLink { [weak self] update in
+                self?.advance(to: update.targetPresentationTimestamp, drawable: update.drawable)
+            }
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+            lastTick = CACurrentMediaTime()
+            return
+        }
         let link = displayLink(target: self, selector: #selector(displayLinkFired(_:)))
         link.add(to: .main, forMode: .common)
         displayLink = link
@@ -213,24 +235,52 @@ final class StarfieldView: ScreenSaverView, CALayerDelegate {
     }
 
     private func detachDisplayLink() {
-        if #available(macOS 14.0, *) { (displayLink as? CADisplayLink)?.invalidate() }
+        (displayLink as? CADisplayLink)?.invalidate()
+        (displayLink as? CAMetalDisplayLink)?.invalidate()
         displayLink = nil
     }
 
-    @available(macOS 14.0, *)
     @objc private func displayLinkFired(_ link: CADisplayLink) {
         advance(to: link.targetTimestamp)
     }
 
-    override func animateOneFrame() {
-        if displayLink == nil { advance(to: CACurrentMediaTime()) }
-    }
-
-    private func advance(to time: CFTimeInterval) {
+    private func advance(to time: CFTimeInterval, drawable: CAMetalDrawable? = nil) {
         let dt = Float(min(4, max(0, (time - lastTick) * 60)))
         lastTick = time
         step(dt: dt)
-        layer?.setNeedsDisplay()
+        if let metal {
+            if let drawable {
+                let scale = window?.backingScaleFactor ?? layer?.contentsScale ?? 1
+                metal.render(size: bounds.size, scale: scale, drawable: drawable) { fillInstances($0) }
+            }
+        } else {
+            layer?.setNeedsDisplay()
+        }
+    }
+
+    /// Writes the visible stars as GPU instances (see `MetalRenderer`), dimmest bucket first so brighter
+    /// stars end up on top.
+    private func fillInstances(_ out: UnsafeMutablePointer<Float>) -> Int {
+        let buckets = Self.buckets
+        let hasTrail = trailLength > 0
+        var n = 0
+        for b in 0..<buckets {
+            let f = Float(b) / Float(buckets - 1)
+            let gray = (70 + 185 * f) / 255
+            let trailRadius = (0.6 + f * 2.4) / 2
+            for j in 0..<bucketLen[b] {
+                let i = Int(bucketIdx[b * Self.maxStars + j])
+                let o = out + n * MetalRenderer.floatsPerInstance
+                o[0] = hasTrail ? px[i] : sx[i]
+                o[1] = hasTrail ? py[i] : sy[i]
+                o[2] = sx[i]
+                o[3] = sy[i]
+                o[4] = hasTrail ? trailRadius : sz[i] / 2
+                o[5] = gray
+                n += 1
+            }
+        }
+        return n
     }
 
     private func step(dt: Float) {
