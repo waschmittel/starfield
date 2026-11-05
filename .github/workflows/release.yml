@@ -188,7 +188,8 @@ jobs:
             # The saver is only ad-hoc signed, so macOS would refuse to load a quarantined copy.
             postflight_steps do
               run "/usr/bin/xattr",
-                  args:           ["-dr", "com.apple.quarantine", "~/Library/Screen Savers/Starfield.saver"],
+                  args:           ["-dr", "com.apple.quarantine", "Starfield.saver"],
+                  chdir:          "~/Library/Screen Savers",
                   writable_paths: ["~/Library/Screen Savers/Starfield.saver"]
             end
 
