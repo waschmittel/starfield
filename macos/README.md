@@ -47,6 +47,11 @@ caps stars at 300.
   `requestAnimationFrame` and later the whole web process, so the saver went black after a few seconds.
   Private WebKit switches did not fix it. The macOS saver therefore does not use any HTML;
   `../starfield.html` is only the reference for the algorithm.
+- **`legacyScreenSaver` leaks views.** Since macOS 14 the host never deallocates stopped `ScreenSaverView`s
+  and rarely calls `stopAnimation` (the `com.apple.screensaver.willstop` notification is the real signal).
+  Each view pinned its full-screen drawables, which added up to 10+ GB over days. The view now drops its
+  renderer and layer on `willstop`/`stopAnimation` and rebuilds them in `startAnimation`.
+  `tests/leak-check.sh` guards this (30 leaked views must stay under 500 MB; it was ~7.5 GB).
 - Debugging: `log stream --predicate 'process == "legacyScreenSaver"'`.
 
 ## Distribution

@@ -38,7 +38,12 @@ final class StarfieldView: ScreenSaverView {
     private let bucketIdx = UnsafeMutablePointer<Int32>.allocate(capacity: maxStars * buckets)
     private let bucketLen = UnsafeMutablePointer<Int>.allocate(capacity: buckets)
 
+    private static let willStop = Notification.Name("com.apple.screensaver.willstop")
+    private var willStopObserver: NSObjectProtocol?
+
     deinit {
+        detachDisplayLink()
+        if let willStopObserver { DistributedNotificationCenter.default().removeObserver(willStopObserver) }
         for p in [x, y, z, sx, sy, px, py, sz] { p.deallocate() }
         bucketIdx.deallocate()
         bucketLen.deallocate()
@@ -68,8 +73,16 @@ final class StarfieldView: ScreenSaverView {
     }
 
     private func setUp() {
-        // Layer-hosting view with the renderer's own Metal layer, so AppKit doesn't manage its backing
-        // scale. Without Metal (e.g. in some VMs) it shows a message instead; the reason is logged.
+        wantsLayer = true
+        if !isPreview { observeWillStop() }
+        for i in 0..<Self.maxStars { respawn(i, anywhere: true) }
+        loadConfig()
+        installLayer()
+    }
+
+    /// Layer-hosting view with the renderer's own Metal layer, so AppKit doesn't manage its backing
+    /// scale. Without Metal (e.g. in some VMs) it shows a message instead; the reason is logged.
+    private func installLayer() {
         if let m = MetalRenderer(capacity: Self.maxStars) {
             metal = m
             layer = m.layer
@@ -85,9 +98,6 @@ final class StarfieldView: ScreenSaverView {
             messageLayer = text
             layer = root
         }
-        wantsLayer = true
-        for i in 0..<Self.maxStars { respawn(i, anywhere: true) }
-        loadConfig()
     }
 
     override var isOpaque: Bool { true }
@@ -154,6 +164,7 @@ final class StarfieldView: ScreenSaverView {
 
     override func startAnimation() {
         super.startAnimation()
+        if metal == nil && messageLayer == nil { installLayer() }
         updateBackingScale()
         lastTick = CACurrentMediaTime()
         attachDisplayLink()
@@ -161,7 +172,22 @@ final class StarfieldView: ScreenSaverView {
 
     override func stopAnimation() {
         super.stopAnimation()
+        releaseGPUResources()
+    }
+
+    /// `legacyScreenSaver` keeps stopped views alive (and often never calls `stopAnimation` outside the
+    /// preview), so each one must give back its full-screen drawables itself or they pile up to GBs.
+    private func releaseGPUResources() {
         detachDisplayLink()
+        guard metal != nil else { return }
+        metal = nil
+        layer = CALayer()
+    }
+
+    private func observeWillStop() {
+        willStopObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.willStop, object: nil, queue: .main
+        ) { [weak self] _ in self?.stopAnimation() }
     }
 
     override func viewDidMoveToWindow() {
