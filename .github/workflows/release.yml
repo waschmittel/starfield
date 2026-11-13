@@ -34,11 +34,18 @@ jobs:
         run: |
           ditto -c -k --keepParent macos/build/Starfield.saver \
             "Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip"
+          ditto -c -k --keepParent macos/build/Starfield.app \
+            "Starfield-macos-appex-${{ steps.ver.outputs.version }}.app.zip"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip
           path: Starfield-macos-${{ steps.ver.outputs.version }}.saver.zip
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Starfield-macos-appex-${{ steps.ver.outputs.version }}.app.zip
+          path: Starfield-macos-appex-${{ steps.ver.outputs.version }}.app.zip
 
   windows:
     name: Build Windows screensavers (MinGW on Linux)
@@ -119,6 +126,7 @@ jobs:
           |file|for|
           |-|-|
           | Starfield-macos-*.saver.zip | macOS 14+ (Apple Silicon and Intel). |
+          | Starfield-macos-appex-*.app.zip | macOS 14+, experimental: the same saver as an app extension (see the [macOS README](https://github.com/waschmittel/starfield/blob/main/macos/README.md#app-extension-starfieldapp)). Copy to `/Applications` and open once. |
           | Starfield-windows-direct2d-*.scr | Windows 10 / 11 |
           | Starfield-windows-gdi-legacy-*.scr | Old Windows versions (Windows 7 / 8 / 8.1) |
           | Starfield-html-*.zip | Plain HTML version for self-hosting: unzip and serve the `starfield/` folder over HTTPS (installable as a PWA) |

@@ -6,14 +6,6 @@ import ScreenSaver
 /// host reports it as hidden, so WebKit suspends it and the saver goes black.
 @objc(StarfieldView)
 final class StarfieldView: ScreenSaverView {
-    private enum Key {
-        static let speed = "speed"
-        static let trailLength = "trailLength"
-        static let starCount = "starCount"
-    }
-    private static let defaultSettings: [String: Any] = [
-        Key.speed: 6.0, Key.trailLength: 0.4, Key.starCount: 1200,
-    ]
     private static let previewStarCount = 300
 
     private static let maxStars = 5000
@@ -55,13 +47,6 @@ final class StarfieldView: ScreenSaverView {
     private var displayLink: CAMetalDisplayLink?
     private var configSheet: ConfigSheet?
 
-    private var defaults: ScreenSaverDefaults? {
-        let id = Bundle(for: StarfieldView.self).bundleIdentifier ?? "starfield"
-        let d = ScreenSaverDefaults(forModuleWithName: id)
-        d?.register(defaults: Self.defaultSettings)
-        return d
-    }
-
     override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
         setUp()
@@ -73,7 +58,6 @@ final class StarfieldView: ScreenSaverView {
     }
 
     private func setUp() {
-        wantsLayer = true
         if !isPreview { observeWillStop() }
         for i in 0..<Self.maxStars { respawn(i, anywhere: true) }
         loadConfig()
@@ -98,6 +82,7 @@ final class StarfieldView: ScreenSaverView {
             messageLayer = text
             layer = root
         }
+        wantsLayer = true   // after setting `layer`: that is what makes the view layer-hosting
     }
 
     override var isOpaque: Bool { true }
@@ -136,28 +121,20 @@ final class StarfieldView: ScreenSaverView {
     }
 
     private func loadConfig() {
-        guard let d = defaults else { return }
-        speed = Float(min(60, max(0.5, d.double(forKey: Key.speed))))
-        trailLength = Float(min(4, max(0, d.double(forKey: Key.trailLength))))
-        let stars = min(Self.maxStars, max(50, d.integer(forKey: Key.starCount)))
+        guard let d = Settings.defaults() else { return }
+        speed = Float(min(60, max(0.5, d.double(forKey: Settings.Key.speed))))
+        trailLength = Float(min(4, max(0, d.double(forKey: Settings.Key.trailLength))))
+        let stars = min(Self.maxStars, max(50, d.integer(forKey: Settings.Key.starCount)))
         starCount = isPreview ? min(Self.previewStarCount, stars) : stars
     }
 
     override var hasConfigureSheet: Bool { true }
 
     override var configureSheet: NSWindow? {
-        guard let d = defaults else { return nil }
-        let sheet = ConfigSheet(
-            speed: d.double(forKey: Key.speed),
-            trailLength: d.double(forKey: Key.trailLength),
-            starCount: d.integer(forKey: Key.starCount)
-        ) { [weak self] speed, trail, stars in
-            d.set(speed, forKey: Key.speed)
-            d.set(trail, forKey: Key.trailLength)
-            d.set(stars, forKey: Key.starCount)
-            d.synchronize()
-            self?.loadConfig()
-        }
+        let sheet = ConfigSheet(onSaved: { [weak self] in self?.loadConfig() }, onClose: { [weak self] in
+            guard let w = self?.configSheet?.window else { return }
+            w.sheetParent?.endSheet(w)
+        })
         configSheet = sheet
         return sheet.window
     }
@@ -165,6 +142,7 @@ final class StarfieldView: ScreenSaverView {
     override func startAnimation() {
         super.startAnimation()
         if metal == nil && messageLayer == nil { installLayer() }
+        loadConfig()
         updateBackingScale()
         lastTick = CACurrentMediaTime()
         attachDisplayLink()
@@ -192,6 +170,10 @@ final class StarfieldView: ScreenSaverView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        if window == nil {
+            stopAnimation()
+            return
+        }
         updateBackingScale()
         if isAnimating { attachDisplayLink() }
     }
@@ -274,89 +256,5 @@ final class StarfieldView: ScreenSaverView {
             bucketIdx[b * Self.maxStars + bucketLen[b]] = Int32(i)
             bucketLen[b] += 1
         }
-    }
-}
-
-/// Modal settings sheet: three sliders with live value labels.
-final class ConfigSheet: NSObject {
-    let window: NSWindow
-    private let speed = NSSlider(value: 6, minValue: 0.5, maxValue: 30, target: nil, action: nil)
-    private let trail = NSSlider(value: 0.4, minValue: 0, maxValue: 4, target: nil, action: nil)
-    private let stars = NSSlider(value: 1200, minValue: 50, maxValue: 5000, target: nil, action: nil)
-    private let labels = [NSTextField(labelWithString: ""), NSTextField(labelWithString: ""), NSTextField(labelWithString: "")]
-    private let onSave: (Double, Double, Int) -> Void
-
-    init(speed s: Double, trailLength t: Double, starCount c: Int, onSave: @escaping (Double, Double, Int) -> Void) {
-        self.onSave = onSave
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 190),
-                          styleMask: [.titled], backing: .buffered, defer: false)
-        super.init()
-        speed.doubleValue = s
-        trail.doubleValue = t
-        stars.integerValue = c
-        for slider in [speed, trail, stars] {
-            slider.target = self
-            slider.action = #selector(changed)
-            slider.isContinuous = true
-            slider.widthAnchor.constraint(equalToConstant: 180).isActive = true
-        }
-
-        let grid = NSGridView(views: [
-            [NSTextField(labelWithString: "Speed"), speed, labels[0]],
-            [NSTextField(labelWithString: "Trail length"), trail, labels[1]],
-            [NSTextField(labelWithString: "Star density"), stars, labels[2]],
-        ])
-        grid.rowSpacing = 12
-        grid.columnSpacing = 10
-        grid.column(at: 0).xPlacement = .trailing
-        grid.column(at: 2).width = 50
-
-        let linkText = NSMutableAttributedString(string: "GPLv3 · Source code", attributes: [
-            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ])
-        let range = (linkText.string as NSString).range(of: "Source code")
-        linkText.addAttributes([
-            .link: URL(string: "https://github.com/waschmittel/starfield")!,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-        ], range: range)
-        let licenseLabel = NSTextField(labelWithAttributedString: linkText)
-        licenseLabel.allowsEditingTextAttributes = true
-        licenseLabel.isSelectable = true
-
-        let ok = NSButton(title: "OK", target: self, action: #selector(save))
-        ok.keyEquivalent = "\r"
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelTapped))
-        cancel.keyEquivalent = "\u{1b}"
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let footer = NSStackView(views: [licenseLabel, spacer, cancel, ok])
-        footer.spacing = 8
-        footer.alignment = .centerY
-
-        let root = NSStackView(views: [grid, footer])
-        root.orientation = .vertical
-        root.alignment = .width
-        root.spacing = 20
-        root.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
-        window.contentView = root
-        changed()
-    }
-
-    @objc private func changed() {
-        labels[0].stringValue = String(format: "%.1f", speed.doubleValue)
-        labels[1].stringValue = String(format: "%.1f", (trail.doubleValue * 10).rounded() / 10)
-        labels[2].stringValue = "\(stars.integerValue)"
-    }
-
-    @objc private func save() {
-        onSave(speed.doubleValue, (trail.doubleValue * 10).rounded() / 10, stars.integerValue)
-        close()
-    }
-
-    @objc private func cancelTapped() { close() }
-
-    private func close() {
-        window.sheetParent?.endSheet(window)
     }
 }

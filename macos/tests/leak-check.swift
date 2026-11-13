@@ -23,24 +23,47 @@ func footprintMB() -> Int {
 }
 func spin(_ seconds: Double) { RunLoop.main.run(until: Date().addingTimeInterval(seconds)) }
 
+func check(_ ok: Bool, _ what: String) {
+    if !ok { fputs("FAIL: \(what)\n", stderr); exit(1) }
+}
+/// The view must be layer-hosting a Metal layer sized to its backing store.
+func checkRendering(_ view: NSView, _ when: String) {
+    let metal = view.layer as? CAMetalLayer
+    check(metal != nil, "\(when): view should host a CAMetalLayer")
+    check((metal?.drawableSize.width ?? 0) > 1, "\(when): drawable should be sized to the view")
+}
+
 var leaked: [ScreenSaverView] = []   // the host keeps stopped views alive, so do the same
 let baseline = footprintMB()
 for i in 0..<views {
     let window = NSWindow(contentRect: NSScreen.main!.frame, styleMask: .borderless, backing: .buffered, defer: false)
-    let view = saverClass.init(frame: window.contentView!.bounds, isPreview: false)!
-    window.contentView!.addSubview(view)
+    // i == 1 mimics the app extension host: a zero-sized view that is the window's content view and gets
+    // sized afterwards.
+    let asExtension = i == 1
+    let view = saverClass.init(frame: asExtension ? .zero : window.contentView!.bounds, isPreview: false)!
+    if asExtension {
+        view.autoresizingMask = [.width, .height]
+        window.contentView = view
+        window.setFrame(NSScreen.main!.frame, display: true)
+    } else {
+        window.contentView!.addSubview(view)
+    }
     window.orderFront(nil)
     view.startAnimation()
     spin(0.3)
+    if asExtension { checkRendering(view, "extension-style view") }
     if i == 0 {   // a stopped view must be restartable
+        checkRendering(view, "after start")
         view.stopAnimation()
         view.startAnimation()
         spin(0.3)
+        checkRendering(view, "after restart")
     }
     DistributedNotificationCenter.default().postNotificationName(
         Notification.Name("com.apple.screensaver.willstop"), object: nil, deliverImmediately: true)
     spin(0.2)
     view.removeFromSuperview()
+    if asExtension { window.contentView = nil }
     window.close()
     leaked.append(view)
 }

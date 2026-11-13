@@ -18,10 +18,36 @@ After replacing an installed saver, restart the host so it picks up the new bina
 killall legacyScreenSaver WallpaperAgent
 ```
 
+## App extension (`Starfield.app`)
+
+`build.sh` also builds `build/Starfield.app`, which embeds `Starfield.appex`: the same saver as an **app
+extension**, the format Apple's own savers use and the one the legacy host's view leaks don't affect.
+The appex shares `Sources/` with the `.saver`; `Appex/` holds only what differs (the three framework
+classes, `Info.plist`, sandbox entitlements, a host app that registers the extension).
+
+> [!WARNING]
+> The extension point (`com.apple.screensaver`) is **undocumented** for third parties, so this uses private
+> API that can change in any macOS release, and can't be shipped through the Mac App Store. Keep using the
+> `.saver` if you need the documented route. Declarations in `Appex/ScreenSaverPrivate.h` come from
+> [AppexSaverMinimal](https://github.com/AerialScreensaver/AppexSaverMinimal).
+
+Install: copy `Starfield.app` to `/Applications` (PlugInKit rejects an extension in an arbitrary folder
+until the app is known to LaunchServices) and open it once, then pick **Starfield** in System Settings
+(Wallpaper > Screen Saver on macOS 26, Screen Saver before). Keep a single copy of the app on the machine, or
+the system may load an unexpected one. After replacing it: `killall WallpaperAgent`.
+
+- The extension is sandboxed; its settings live in its own container (`de.flubba.starfield.extension`), so
+  they are separate from the `.saver`'s.
+- The host never sends `stopAnimation` to views it releases, so the view also ends its session when it
+  leaves its window. Unlike `legacyScreenSaver`, the Wallpaper agent really deallocates them.
+- Untested here: the picker thumbnail (extensions normally ship it in an asset catalog, which needs Xcode;
+  `CFBundleIconFile` is a best guess). Apart from registration, `tests/appex-check.sh` and the extension-style
+  case in `tests/leak-check.sh` stand in for running it in the Wallpaper agent.
+
 ## Settings
 
 Speed, trail length (0–4) and star density (50–5000). Stored with `ScreenSaverDefaults`
-(module `de.flubba.starfield.saver`). Defaults: speed 6, trail 0.4, 1200 stars. The preview pane
+(module `de.flubba.starfield.saver`; for the extension `de.flubba.starfield.extension`). Defaults: speed 6, trail 0.4, 1200 stars. The preview pane
 caps stars at 300.
 
 ## How it works
