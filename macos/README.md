@@ -31,7 +31,7 @@ classes, `Info.plist`, sandbox entitlements, a host app that registers the exten
 > `.saver` if you need the documented route. Declarations in `Appex/ScreenSaverPrivate.h` come from
 > [AppexSaverMinimal](https://github.com/AerialScreensaver/AppexSaverMinimal).
 
-Install: copy `Starfield.app` to `/Applications` (PlugInKit rejects an extension in an arbitrary folder
+Install: `brew install --cask waschmittel/starfield/starfield-app` (conflicts with the `starfield` cask), or copy `Starfield.app` to `/Applications` (PlugInKit rejects an extension in an arbitrary folder
 until the app is known to LaunchServices) and open it once, then pick **Starfield** in System Settings
 (Wallpaper > Screen Saver on macOS 26, Screen Saver before). Keep a single copy of the app on the machine, or
 the system may load an unexpected one. After replacing it: `killall WallpaperAgent`.

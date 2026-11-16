@@ -15,5 +15,6 @@ for key in NSExtension.NSExtensionPrincipalClass ScreenSaverViewControllerClass 
   cls=$(plutil -extract "$key" raw "$PLIST")
   strings -a "$APPEX/Contents/MacOS/Starfield" | grep -qx "$cls" || fail "$key: class $cls not in binary"
 done
+[ -s build/Starfield.app/Contents/Resources/AppIcon.icns ] || fail "no app icon"
 lipo -archs "$APPEX/Contents/MacOS/Starfield" | grep -q arm64 || fail "no arm64 slice"
 echo "appex ok"

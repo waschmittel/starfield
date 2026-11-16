@@ -126,7 +126,7 @@ jobs:
           |file|for|
           |-|-|
           | Starfield-macos-*.saver.zip | macOS 14+ (Apple Silicon and Intel). |
-          | Starfield-macos-appex-*.app.zip | macOS 14+, experimental: the same saver as an app extension (see the [macOS README](https://github.com/waschmittel/starfield/blob/main/macos/README.md#app-extension-starfieldapp)). Copy to `/Applications` and open once. |
+          | Starfield-macos-appex-*.app.zip | macOS 14+, experimental: the same saver as an app extension (see the [macOS README](https://github.com/waschmittel/starfield/blob/main/macos/README.md#app-extension-starfieldapp)). Copy to `/Applications` and open once, or `brew install --cask waschmittel/starfield/starfield-app`. |
           | Starfield-windows-direct2d-*.scr | Windows 10 / 11 |
           | Starfield-windows-gdi-legacy-*.scr | Old Windows versions (Windows 7 / 8 / 8.1) |
           | Starfield-html-*.zip | Plain HTML version for self-hosting: unzip and serve the `starfield/` folder over HTTPS (installable as a PWA) |
@@ -176,6 +176,8 @@ jobs:
           v="${tag#v}"
           zip="artifacts/Starfield-macos-$v.saver.zip/Starfield-macos-$v.saver.zip"
           sha=$(sha256sum "$zip" | cut -d' ' -f1)
+          appzip="artifacts/Starfield-macos-appex-$v.app.zip/Starfield-macos-appex-$v.app.zip"
+          appsha=$(sha256sum "$appzip" | cut -d' ' -f1)
 
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-starfield.git" tap
           mkdir -p tap/Casks
@@ -203,12 +205,49 @@ jobs:
           end
           EOF
 
+          cat > tap/Casks/starfield-app.rb <<EOF
+          cask "starfield-app" do
+            version "$v"
+            sha256 "$appsha"
+
+            url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v#{version}/Starfield-macos-appex-#{version}.app.zip"
+            name "Starfield"
+            desc "Classic Windows-style starfield screensaver (app extension)"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
+
+            conflicts_with cask: "starfield"
+            depends_on macos: :sonoma
+
+            app "Starfield.app"
+
+            # The app is only ad-hoc signed, so macOS would refuse to load a quarantined copy.
+            preflight_steps do
+              run "/usr/bin/xattr",
+                  args: ["-dr", "com.apple.quarantine", "{{staged_path}}/Starfield.app"]
+            end
+
+            # Registers the extension with PlugInKit, like opening the app once.
+            postflight_steps do
+              run "/usr/bin/pluginkit",
+                  args: ["-a", "{{appdir}}/Starfield.app/Contents/PlugIns/Starfield.appex"]
+            end
+
+            uninstall_preflight_steps do
+              run "/usr/bin/pluginkit",
+                  args:         ["-r", "{{appdir}}/Starfield.app/Contents/PlugIns/Starfield.appex"],
+                  must_succeed: false
+            end
+
+            zap trash: "~/Library/Containers/de.flubba.starfield.extension"
+          end
+          EOF
+
           cd tap
           if [ -z "$(git status --porcelain)" ]; then
             echo "Cask already up to date"
             exit 0
           fi
-          git add Casks/starfield.rb
+          git add Casks/starfield.rb Casks/starfield-app.rb
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Update starfield to $v"

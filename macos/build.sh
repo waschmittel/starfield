@@ -10,7 +10,7 @@ APP=build/Starfield.app
 APPEX=$APP/Contents/PlugIns/Starfield.appex
 rm -rf build
 mkdir -p "$SAVER/Contents/MacOS" "$SAVER/Contents/Resources" \
-         "$APPEX/Contents/MacOS" "$APPEX/Contents/Resources" "$APP/Contents/MacOS" build/tmp
+         "$APPEX/Contents/MacOS" "$APPEX/Contents/Resources" "$APP/Contents/MacOS" "$APP/Contents/Resources" build/tmp
 
 # compile <output> <archs> <swiftc args...>: builds each arch and lipos them together.
 compile() {
@@ -39,6 +39,7 @@ cp Resources/thumbnail.png Resources/thumbnail@2x.png ../LICENSE "$APPEX/Content
 
 compile "$APP/Contents/MacOS/Starfield" "arm64 x86_64" -framework AppKit Appex/host.swift
 cp Appex/Host-Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 rm -rf build/tmp
 
 codesign --force --deep --sign "${SIGN_ID:--}" "$SAVER"
