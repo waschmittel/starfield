@@ -226,19 +226,12 @@ jobs:
                   args: ["-dr", "com.apple.quarantine", "{{staged_path}}/Starfield.app"]
             end
 
-            # Registers the extension with PlugInKit, like opening the app once.
-            postflight_steps do
-              run "/usr/bin/pluginkit",
-                  args: ["-a", "{{appdir}}/Starfield.app/Contents/PlugIns/Starfield.appex"]
-            end
-
-            uninstall_preflight_steps do
-              run "/usr/bin/pluginkit",
-                  args:         ["-r", "{{appdir}}/Starfield.app/Contents/PlugIns/Starfield.appex"],
-                  must_succeed: false
-            end
-
             zap trash: "~/Library/Containers/de.flubba.starfield.extension"
+
+            caveats <<~EOS
+              Open Starfield.app once to register the screen saver extension:
+                open -a Starfield
+            EOS
           end
           EOF
 
