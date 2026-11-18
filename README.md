@@ -28,14 +28,15 @@ Then open `Starfield.app` once (`open -a Starfield`) to register the screen save
 
 Or manually:
 
-1. Unzip and double-click `Starfield.saver`. If macOS refuses, open **System Settings > Privacy & Security**,
+1. Unzip and double-click `Starfield.app`. If macOS refuses, open **System Settings > Privacy & Security**,
    scroll down and click **Open Anyway** next to the Starfield message, then confirm.
 2. Or remove the download quarantine flag in Terminal before installing:
    ```bash
-   xattr -dr com.apple.quarantine Starfield.saver
+   xattr -dr com.apple.quarantine Starfield.app
    ```
-   (use the path where you put it, e.g. `~/Library/Screen Savers/Starfield.saver` if already installed).
-3. Pick **Starfield** in **System Settings > Screen Saver**. If an older version is installed, run
+   (use the path where you put it, e.g. `~/Library/Screen Savers/Starfield.app` if already installed).
+3. Open `Starfield.app`
+4. Pick **Starfield** in **System Settings > Screen Saver**. If an older version is installed, run
    `killall legacyScreenSaver WallpaperAgent` so the new one is loaded.
 </details>
 
