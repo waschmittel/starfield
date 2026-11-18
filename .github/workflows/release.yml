@@ -125,8 +125,8 @@ jobs:
 
           |file|for|
           |-|-|
-          | Starfield-macos-*.saver.zip | macOS 14+ (Apple Silicon and Intel). |
-          | Starfield-macos-appex-*.app.zip | macOS 14+, experimental: the same saver as an app extension (see the [macOS README](https://github.com/waschmittel/starfield/blob/main/macos/README.md#app-extension-starfieldapp)). Copy to `/Applications` and open once, or `brew install --cask waschmittel/starfield/starfield-app`. |
+          | Starfield-macos-appex-*.app.zip | **modern screensaver** for macOS 14+, copy to `/Applications` and open once |
+          | Starfield-macos-*.saver.zip | **legacy screensaver** for macOS 14+ (Apple Silicon and Intel) |
           | Starfield-windows-direct2d-*.scr | Windows 10 / 11 |
           | Starfield-windows-gdi-legacy-*.scr | Old Windows versions (Windows 7 / 8 / 8.1) |
           | Starfield-html-*.zip | Plain HTML version for self-hosting: unzip and serve the `starfield/` folder over HTTPS (installable as a PWA) |
@@ -138,7 +138,7 @@ jobs:
 
           |file|installation|
           |-|-|
-          |macOS| `brew install waschmittel/starfield/starfield`, or unzip and double-click `Starfield.saver`. If it is blocked, open **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine Starfield.saver`. Then pick **Starfield** in **System Settings > Screen Saver**|
+          |macOS| `brew install waschmittel/starfield/starfield-app`, or unzip and double-click `Starfield.app`. If it is blocked, open **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine Starfield.app`. Then open and pick **Starfield** in **System Settings > Screen Saver**|
           |Windows| right-click the `.scr` > **Properties** > tick **Unblock** > OK, then right-click > **Install**. If SmartScreen shows "Windows protected your PC", click **More info > Run anyway**. Your browser may ask you to **Keep** the file first.|
           |HTML|unzip and serve the `starfield/` folder over HTTPS (installable as a PWA), or just open the file locally (no PWA support)|
 
