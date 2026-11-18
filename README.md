@@ -21,8 +21,10 @@ Prebuilt screensavers are on the [Releases page](https://github.com/waschmittel/
 
 With [Homebrew](https://brew.sh) (also removes the quarantine flag for you):
 ```bash
-brew install waschmittel/starfield/starfield
+brew install --cask waschmittel/starfield/starfield-app
 ```
+Then open `Starfield.app` once (`open -a Starfield`) to register the screen saver extension. (The legacy
+`starfield` `.saver` cask is deprecated.)
 
 Or manually:
 
